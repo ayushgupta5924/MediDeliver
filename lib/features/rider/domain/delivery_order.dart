@@ -6,7 +6,7 @@ part 'delivery_order.g.dart';
 enum DeliveryStatus { available, accepted, pickedUp, delivered }
 
 @freezed
-class DeliveryOrder with _$DeliveryOrder {
+abstract class DeliveryOrder with _$DeliveryOrder {
   const factory DeliveryOrder({
     required String id,
     required String patientName,
@@ -31,8 +31,8 @@ extension DeliveryOrderExt on DeliveryOrder {
         return 'Picked Up';
       case DeliveryStatus.delivered:
         return 'Delivered';
-      default:
-        throw StateError('Unknown status: $status');
+      // default:
+      //   throw StateError('Unknown status: $status');
     }
   }
 }

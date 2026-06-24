@@ -5,11 +5,12 @@ import '../../features/auth/presentation/role_selector_screen.dart';
 import '../../features/patient/presentation/patient_upload_screen.dart';
 import '../../features/pharmacist/presentation/pharmacist_dashboard_screen.dart';
 import '../../features/rider/presentation/rider_dashboard_screen.dart';
+import '../../main.dart';
 
 part 'app_router.g.dart';
 
 @riverpod
-GoRouter appRouter(AppRouterRef ref) {
+GoRouter appRouter(Ref ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [

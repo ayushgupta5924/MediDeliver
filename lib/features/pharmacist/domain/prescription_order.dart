@@ -15,7 +15,7 @@ enum OrderStatus {
 }
 
 @freezed
-class PrescriptionOrder with _$PrescriptionOrder {
+abstract class PrescriptionOrder with _$PrescriptionOrder {
   const factory PrescriptionOrder({
     required String id,
     required String patientName,
