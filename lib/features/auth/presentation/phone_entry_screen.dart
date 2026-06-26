@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -11,10 +10,9 @@ class PhoneEntryScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final phoneController = TextEditingController();
+    final emailController = TextEditingController();
     UserRole selectedRole = UserRole.customer;
 
-    // Navigate to OTP screen when OTP is sent
     ref.listen(authProvider, (previous, next) {
       if (next.otpSent && !(previous?.otpSent ?? false)) {
         context.go('/otp');
@@ -30,8 +28,6 @@ class PhoneEntryScreen extends HookConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 48),
-
-              // Logo
               Row(
                 children: [
                   Container(
@@ -57,11 +53,9 @@ class PhoneEntryScreen extends HookConsumerWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 48),
-
               const Text(
-                'Enter your\nmobile number',
+                'Enter your\nemail address',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -70,47 +64,22 @@ class PhoneEntryScreen extends HookConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'We will send you a verification code',
+                'We will send you a 6-digit verification code',
                 style: TextStyle(color: Colors.grey[600], fontSize: 15),
               ),
-
               const SizedBox(height: 32),
-
-              // Phone field
               TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(10),
-                ],
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 2,
-                ),
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
+                style: const TextStyle(fontSize: 16),
                 decoration: InputDecoration(
-                  prefixIcon: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    child: const Text(
-                      '+91',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  prefixIcon: const Icon(
+                    Icons.email_outlined,
+                    color: Color(0xFF00897B),
                   ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 0),
-                  hintText: '9876543210',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[400],
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.normal,
-                    fontSize: 18,
-                  ),
+                  hintText: 'yourname@gmail.com',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey[300]!),
@@ -130,16 +99,12 @@ class PhoneEntryScreen extends HookConsumerWidget {
                   fillColor: Colors.grey[50],
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Role selection
               const Text(
                 'I am a',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
-
               StatefulBuilder(
                 builder: (context, setState) {
                   return Row(
@@ -177,8 +142,6 @@ class PhoneEntryScreen extends HookConsumerWidget {
                   );
                 },
               ),
-
-              // Error
               if (authState.error != null) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -209,10 +172,7 @@ class PhoneEntryScreen extends HookConsumerWidget {
                   ),
                 ),
               ],
-
               const Spacer(),
-
-              // Send OTP button
               SizedBox(
                 width: double.infinity,
                 height: 54,
@@ -221,12 +181,11 @@ class PhoneEntryScreen extends HookConsumerWidget {
                       authState.isLoading
                           ? null
                           : () {
+                            final email = emailController.text.trim();
+                            if (email.isEmpty || !email.contains('@')) return;
                             ref
                                 .read(authProvider.notifier)
-                                .sendOtp(
-                                  phone: phoneController.text.trim(),
-                                  role: selectedRole,
-                                );
+                                .sendOtp(email: email, role: selectedRole);
                           },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00897B),

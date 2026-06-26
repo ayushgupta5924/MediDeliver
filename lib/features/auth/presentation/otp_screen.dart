@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -12,13 +11,11 @@ class OtpScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final controllers =
-        List.generate(6, (_) => TextEditingController());
+    final controllers = List.generate(6, (_) => TextEditingController());
     final focusNodes = List.generate(6, (_) => FocusNode());
     int secondsRemaining = 60;
 
-    String get otp =>
-        controllers.map((c) => c.text).join();
+    String getOtp() => controllers.map((c) => c.text).join();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -50,7 +47,7 @@ class OtpScreen extends HookConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Enter the 6-digit code sent to\n${authState.pendingPhone ?? ''}',
+                'Enter the 6-digit code sent to\n${authState.pendingEmail ?? ''}',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 15,
@@ -73,9 +70,7 @@ class OtpScreen extends HookConsumerWidget {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       maxLength: 1,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -84,13 +79,11 @@ class OtpScreen extends HookConsumerWidget {
                         counterText: '',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              BorderSide(color: Colors.grey[300]!),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -106,10 +99,10 @@ class OtpScreen extends HookConsumerWidget {
                         if (value.isNotEmpty && index < 5) {
                           focusNodes[index + 1].requestFocus();
                         }
-                        if (otp.length == 6) {
+                        if (getOtp().length == 6) {
                           ref
                               .read(authProvider.notifier)
-                              .verifyOtp(otp: otp);
+                              .verifyOtp(otp: getOtp());
                         }
                       },
                     ),
@@ -130,14 +123,19 @@ class OtpScreen extends HookConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.red, size: 16),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           authState.error!,
                           style: const TextStyle(
-                              color: Colors.red, fontSize: 13),
+                            color: Colors.red,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
@@ -150,11 +148,12 @@ class OtpScreen extends HookConsumerWidget {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: authState.isLoading
-                      ? null
-                      : () => ref
-                          .read(authProvider.notifier)
-                          .verifyOtp(otp: otp),
+                  onPressed:
+                      authState.isLoading
+                          ? null
+                          : () => ref
+                              .read(authProvider.notifier)
+                              .verifyOtp(otp: getOtp()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00897B),
                     foregroundColor: Colors.white,
@@ -163,22 +162,23 @@ class OtpScreen extends HookConsumerWidget {
                     ),
                     elevation: 0,
                   ),
-                  child: authState.isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
+                  child:
+                      authState.isLoading
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                          : const Text(
+                            'Verify & Continue',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          'Verify & Continue',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                 ),
               ),
               const SizedBox(height: 32),
