@@ -8,18 +8,28 @@ import 'core/router/app_router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  if (!SupabaseConstants.isConfigured) {
+    runApp(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text(
+              'MediDeliver is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY.',
+            ),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
   // Initialize Supabase
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
-    anonKey: SupabaseConstants.supabaseAnonKey,
+    publishableKey: SupabaseConstants.supabaseAnonKey,
   );
 
   runApp(const ProviderScope(child: MediDeliverApp()));
 }
-
-// Global Supabase client accessor
-// Use this anywhere in the app: supabase.from('orders')...
-final supabase = Supabase.instance.client;
 
 class MediDeliverApp extends HookConsumerWidget {
   const MediDeliverApp({super.key});

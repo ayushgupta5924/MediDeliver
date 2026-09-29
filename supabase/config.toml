@@ -1,0 +1,23 @@
+project_id = "medideliver"
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 100
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+[db.seed]
+enabled = false
+sql_paths = ["./seed.sql"]
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+enable_signup = true
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 600

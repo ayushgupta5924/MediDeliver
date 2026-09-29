@@ -1,30 +1,55 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:medideliver/core/services/auth_service.dart';
+import 'package:medideliver/features/auth/presentation/phone_entry_screen.dart';
+import 'package:medideliver/features/auth/presentation/otp_screen.dart';
 
-import 'package:medideliver/main.dart';
+class FakeAuth extends AuthNotifier {
+  @override
+  AuthState build() =>
+      const AuthState(pendingEmail: 'fictional@example.invalid', otpSent: true);
+  void fail() => state = state.copyWith(error: 'Try again');
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+  testWidgets(
+    'email input survives auth state updates and offers no privilege selector',
+    (tester) async {
+      final auth = FakeAuth();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authProvider.overrideWith(() => auth)],
+          child: const MaterialApp(home: PhoneEntryScreen()),
+        ),
+      );
+      await tester.enterText(
+        find.byType(TextField),
+        'customer@example.invalid',
+      );
+      auth.fail();
+      await tester.pump();
+      expect(find.text('customer@example.invalid'), findsOneWidget);
+      expect(find.text('Pharmacy'), findsNothing);
+      expect(find.text('Rider'), findsNothing);
+    },
+  );
+  testWidgets(
+    'OTP remains populated after failed verification and disposes timer',
+    (tester) async {
+      final auth = FakeAuth();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authProvider.overrideWith(() => auth)],
+          child: const MaterialApp(home: OtpScreen()),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), '123456');
+      auth.fail();
+      await tester.pump();
+      expect(find.text('123456'), findsOneWidget);
+      expect(find.text('Verify your email'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }
