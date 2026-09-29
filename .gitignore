@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local configuration and signing
+.env*
+!*.example
+config/*.json
+!config/*.example.json
+android/key.properties
+*.jks
+*.keystore
+supabase/.temp/
+supabase/.branches/

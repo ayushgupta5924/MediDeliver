@@ -1,52 +1,28 @@
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'package:uuid/uuid.dart';
+import '../../../core/services/auth_service.dart';
 import '../data/order_repository.dart';
 import '../domain/order_model.dart';
 
-// ── Medicine Item ──────────────────────────────────
-// Represents one medicine typed by the customer
+enum OrderInputMode { prescription, typed }
 
 class MedicineItem {
-  final String id;
-  final String name;
+  final String id, name;
   final int quantity;
-
-  const MedicineItem({
-    required this.id,
-    required this.name,
-    this.quantity = 1,
-  });
-
-  MedicineItem copyWith({String? name, int? quantity}) {
-    return MedicineItem(
-      id: id,
-      name: name ?? this.name,
-      quantity: quantity ?? this.quantity,
-    );
-  }
+  const MedicineItem({required this.id, required this.name, this.quantity = 1});
+  Map<String, dynamic> toMap() => {'name': name, 'quantity': quantity};
 }
-
-// ── Order Input Mode ───────────────────────────────
-
-enum OrderInputMode {
-  prescription, // Upload image
-  typed,        // Type medicine names
-}
-
-// ── State ──────────────────────────────────────────
 
 class PatientState {
   final OrderInputMode inputMode;
-  final File? selectedImage;
+  final XFile? selectedImage;
   final List<MedicineItem> typedMedicines;
   final bool isUploading;
   final String? errorMessage;
   final OrderModel? submittedOrder;
-  final bool orderSubmitted;
-  final String? customerNotes;
-
+  final String address, postalCode, notes;
+  final String? pharmacyId;
   const PatientState({
     this.inputMode = OrderInputMode.prescription,
     this.selectedImage,
@@ -54,217 +30,179 @@ class PatientState {
     this.isUploading = false,
     this.errorMessage,
     this.submittedOrder,
-    this.orderSubmitted = false,
-    this.customerNotes,
+    this.address = '',
+    this.postalCode = '',
+    this.notes = '',
+    this.pharmacyId,
   });
-
-  // Can submit if:
-  // - Prescription mode: image selected
-  // - Typed mode: at least one medicine added
-  bool get canSubmit {
-    if (isUploading) return false;
-    if (inputMode == OrderInputMode.prescription) {
-      return selectedImage != null;
-    }
-    return typedMedicines.isNotEmpty;
-  }
-
+  bool get canSubmit =>
+      !isUploading &&
+      pharmacyId != null &&
+      address.trim().length >= 10 &&
+      RegExp(r'^\d{6}$').hasMatch(postalCode) &&
+      (inputMode == OrderInputMode.prescription
+          ? selectedImage != null
+          : typedMedicines.isNotEmpty);
   PatientState copyWith({
     OrderInputMode? inputMode,
-    File? selectedImage,
+    XFile? selectedImage,
     List<MedicineItem>? typedMedicines,
     bool? isUploading,
     String? errorMessage,
     OrderModel? submittedOrder,
-    bool? orderSubmitted,
-    String? customerNotes,
+    String? address,
+    String? postalCode,
+    String? notes,
+    String? pharmacyId,
     bool clearImage = false,
-    bool clearError = false,
-    bool clearOrder = false,
-  }) {
-    return PatientState(
-      inputMode: inputMode ?? this.inputMode,
-      selectedImage:
-          clearImage ? null : selectedImage ?? this.selectedImage,
-      typedMedicines: typedMedicines ?? this.typedMedicines,
-      isUploading: isUploading ?? this.isUploading,
-      errorMessage:
-          clearError ? null : errorMessage ?? this.errorMessage,
-      submittedOrder:
-          clearOrder ? null : submittedOrder ?? this.submittedOrder,
-      orderSubmitted: orderSubmitted ?? this.orderSubmitted,
-      customerNotes: customerNotes ?? this.customerNotes,
-    );
-  }
+  }) => PatientState(
+    inputMode: inputMode ?? this.inputMode,
+    selectedImage: clearImage ? null : selectedImage ?? this.selectedImage,
+    typedMedicines: typedMedicines ?? this.typedMedicines,
+    isUploading: isUploading ?? this.isUploading,
+    errorMessage: errorMessage,
+    submittedOrder: submittedOrder ?? this.submittedOrder,
+    address: address ?? this.address,
+    postalCode: postalCode ?? this.postalCode,
+    notes: notes ?? this.notes,
+    pharmacyId: pharmacyId ?? this.pharmacyId,
+  );
 }
 
-// ── Notifier ───────────────────────────────────────
-
 class PatientNotifier extends Notifier<PatientState> {
-  final _picker = ImagePicker();
-
+  String? _requestId;
   @override
-  PatientState build() => const PatientState();
+  PatientState build() {
+    ref.watch(authProvider.select((s) => s.user?.id));
+    _requestId = null;
+    return const PatientState();
+  }
 
-  // ── Switch input mode ──────────────────────────
+  void edit({
+    String? address,
+    String? postalCode,
+    String? notes,
+    String? pharmacyId,
+  }) {
+    if (state.isUploading) return;
+    _requestId = null;
+    state = state.copyWith(
+      address: address,
+      postalCode: postalCode,
+      notes: notes,
+      pharmacyId: pharmacyId,
+    );
+  }
 
   void setInputMode(OrderInputMode mode) {
-    state = state.copyWith(
-      inputMode: mode,
-      clearImage: true,
-      clearError: true,
-    );
+    if (state.isUploading) return;
+    _requestId = null;
+    state = state.copyWith(inputMode: mode, clearImage: true);
   }
-
-  // ── Typed medicines ────────────────────────────
 
   void addMedicine(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return;
-
-    // Prevent exact duplicates
-    final exists = state.typedMedicines
-        .any((m) => m.name.toLowerCase() == trimmed.toLowerCase());
-    if (exists) return;
-
-    final newItem = MedicineItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: trimmed,
-    );
-
+    if (state.isUploading ||
+        name.trim().isEmpty ||
+        name.trim().length > 200 ||
+        state.typedMedicines.length >= 50) {
+      return;
+    }
+    if (state.typedMedicines.any(
+      (m) => m.name.toLowerCase() == name.trim().toLowerCase(),
+    )) {
+      return;
+    }
+    _requestId = null;
     state = state.copyWith(
-      typedMedicines: [...state.typedMedicines, newItem],
-      clearError: true,
+      typedMedicines: [
+        ...state.typedMedicines,
+        MedicineItem(id: const Uuid().v4(), name: name.trim()),
+      ],
     );
   }
 
-  void removeMedicine(String id) {
+  void changeQuantity(String id, int quantity) {
+    if (state.isUploading || quantity < 0 || quantity > 100) return;
+    _requestId = null;
     state = state.copyWith(
-      typedMedicines:
-          state.typedMedicines.where((m) => m.id != id).toList(),
+      typedMedicines: [
+        for (final item in state.typedMedicines)
+          if (item.id != id)
+            item
+          else if (quantity > 0)
+            MedicineItem(id: id, name: item.name, quantity: quantity),
+      ],
     );
   }
 
-  void updateMedicineQuantity(String id, int quantity) {
-    if (quantity < 1) return;
-    state = state.copyWith(
-      typedMedicines: state.typedMedicines
-          .map((m) => m.id == id ? m.copyWith(quantity: quantity) : m)
-          .toList(),
-    );
-  }
-
-  // ── Image picking ──────────────────────────────
-
-  Future<void> pickFromCamera() async {
+  Future<void> pick(ImageSource source) async {
+    if (state.isUploading) return;
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-        maxWidth: 1200,
+      final image = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
       );
-      if (picked != null) {
+      if (image != null && ref.mounted) {
+        _requestId = null;
+        state = state.copyWith(selectedImage: image);
+      }
+    } catch (_) {
+      if (ref.mounted) {
         state = state.copyWith(
-          selectedImage: File(picked.path),
-          clearError: true,
+          errorMessage:
+              'Could not open images. Check camera/photo permissions.',
         );
       }
-    } catch (e) {
-      state = state.copyWith(
-        errorMessage: 'Could not open camera. Please try gallery.',
-      );
     }
   }
-
-  Future<void> pickFromGallery() async {
-    try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1200,
-      );
-      if (picked != null) {
-        state = state.copyWith(
-          selectedImage: File(picked.path),
-          clearError: true,
-        );
-      }
-    } catch (e) {
-      state = state.copyWith(
-        errorMessage: 'Could not open gallery.',
-      );
-    }
-  }
-
-  void clearImage() {
-    state = state.copyWith(clearImage: true, clearError: true);
-  }
-
-  void updateNotes(String notes) {
-    state = state.copyWith(customerNotes: notes);
-  }
-
-  // ── Submit order ───────────────────────────────
 
   Future<void> submitOrder() async {
     if (!state.canSubmit) return;
-    state = state.copyWith(isUploading: true, clearError: true);
-
-    final repository = ref.read(orderRepositoryProvider);
-
-    String? prescriptionUrl;
-    String? typedMedicinesText;
-
-    if (state.inputMode == OrderInputMode.prescription) {
-      // Upload image
-      final uploadResult = await repository.uploadPrescriptionImage(
-        state.selectedImage!,
+    final actorId = ref.read(authProvider).user?.id;
+    final input = state;
+    final requestId = _requestId ??= const Uuid().v4();
+    state = state.copyWith(isUploading: true);
+    try {
+      final repo = ref.read(orderRepositoryProvider);
+      final path = input.inputMode == OrderInputMode.prescription
+          ? await repo.uploadPrescription(input.selectedImage!, requestId)
+          : null;
+      if (!ref.mounted || ref.read(authProvider).user?.id != actorId) return;
+      final order = await repo.createOrder(
+        requestId: requestId,
+        pharmacyId: input.pharmacyId!,
+        address: input.address.trim(),
+        postalCode: input.postalCode,
+        notes: input.notes,
+        prescriptionPath: path,
+        items: input.inputMode == OrderInputMode.typed
+            ? input.typedMedicines.map((m) => m.toMap()).toList()
+            : [],
       );
-      if (uploadResult.isFailure) {
+      if (ref.mounted && ref.read(authProvider).user?.id == actorId) {
+        state = state.copyWith(isUploading: false, submittedOrder: order);
+      }
+    } catch (_) {
+      if (ref.mounted && ref.read(authProvider).user?.id == actorId) {
         state = state.copyWith(
           isUploading: false,
-          errorMessage: uploadResult.error,
+          errorMessage:
+              'Order not confirmed. Check your connection and pharmacy service area, then retry. Check order history before starting a new request.',
         );
-        return;
       }
-      prescriptionUrl = uploadResult.data;
-    } else {
-      // Convert typed medicines to a readable string
-      // stored in customer_notes field
-      typedMedicinesText = state.typedMedicines
-          .map((m) => '${m.name} x${m.quantity}')
-          .join(', ');
     }
-
-    final orderResult = await repository.createOrder(
-      prescriptionImageUrl: prescriptionUrl,
-      customerNotes: state.inputMode == OrderInputMode.typed
-          ? 'Medicines: $typedMedicinesText'
-          : state.customerNotes,
-    );
-
-    if (orderResult.isFailure) {
-      state = state.copyWith(
-        isUploading: false,
-        errorMessage: orderResult.error,
-      );
-      return;
-    }
-
-    state = state.copyWith(
-      isUploading: false,
-      orderSubmitted: true,
-      submittedOrder: orderResult.data,
-      clearImage: true,
-      clearError: true,
-    );
   }
 
   void resetAfterSubmit() {
+    _requestId = null;
     state = const PatientState();
   }
 }
 
 final patientProvider = NotifierProvider<PatientNotifier, PatientState>(
   PatientNotifier.new,
+);
+final pharmaciesProvider = FutureProvider<List<Pharmacy>>(
+  (ref) => ref.watch(orderRepositoryProvider).pharmacies(),
 );

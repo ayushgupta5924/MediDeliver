@@ -1,275 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-
+import 'package:go_router/go_router.dart';
 import '../../../core/services/auth_service.dart';
 
 class PhoneEntryScreen extends HookConsumerWidget {
   const PhoneEntryScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
-    final emailController = TextEditingController();
-    UserRole selectedRole = UserRole.customer;
-
+    final email = useTextEditingController();
+    final auth = ref.watch(authProvider);
     ref.listen(authProvider, (previous, next) {
-      if (next.otpSent && !(previous?.otpSent ?? false)) {
-        context.go('/otp');
-      }
+      if (next.otpSent && !(previous?.otpSent ?? false)) context.go('/otp');
     });
-
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(title: const Text('MediDeliver')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(24),
             children: [
-              const SizedBox(height: 48),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00897B),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.medical_services_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'MediDeliver',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF00897B),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 48),
-              const Text(
-                'Enter your\nemail address',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 8),
               Text(
-                'We will send you a 6-digit verification code',
-                style: TextStyle(color: Colors.grey[600], fontSize: 15),
+                'Sign in with email',
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                autocorrect: false,
-                style: const TextStyle(fontSize: 16),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(
-                    Icons.email_outlined,
-                    color: Color(0xFF00897B),
-                  ),
-                  hintText: 'yourname@gmail.com',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF00897B),
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
+              const SizedBox(height: 16),
+              const Text(
+                'We will email you a six-digit verification code. Pharmacy and delivery accounts require approval.',
               ),
               const SizedBox(height: 24),
-              const Text(
-                'I am a',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              TextField(
+                controller: email,
+                enabled: !auth.isLoading,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(labelText: 'Email address'),
               ),
-              const SizedBox(height: 12),
-              StatefulBuilder(
-                builder: (context, setState) {
-                  return Row(
-                    children: [
-                      _RoleChip(
-                        label: 'Customer',
-                        icon: Icons.person_outline,
-                        selected: selectedRole == UserRole.customer,
-                        onTap:
-                            () => setState(
-                              () => selectedRole = UserRole.customer,
-                            ),
-                      ),
-                      const SizedBox(width: 8),
-                      _RoleChip(
-                        label: 'Pharmacy',
-                        icon: Icons.store_outlined,
-                        selected: selectedRole == UserRole.pharmacyOwner,
-                        onTap:
-                            () => setState(
-                              () => selectedRole = UserRole.pharmacyOwner,
-                            ),
-                      ),
-                      const SizedBox(width: 8),
-                      _RoleChip(
-                        label: 'Rider',
-                        icon: Icons.delivery_dining_outlined,
-                        selected: selectedRole == UserRole.deliveryPartner,
-                        onTap:
-                            () => setState(
-                              () => selectedRole = UserRole.deliveryPartner,
-                            ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              if (authState.error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.error!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
+              if (auth.error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    auth.error!,
+                    style: const TextStyle(color: Colors.red),
                   ),
                 ),
-              ],
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed:
-                      authState.isLoading
-                          ? null
-                          : () {
-                            final email = emailController.text.trim();
-                            if (email.isEmpty || !email.contains('@')) return;
-                            ref
-                                .read(authProvider.notifier)
-                                .sendOtp(email: email, role: selectedRole);
-                          },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00897B),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
-                  child:
-                      authState.isLoading
-                          ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                          : const Text(
-                            'Send OTP',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RoleChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _RoleChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color:
-                selected
-                    ? const Color(0xFF00897B).withOpacity(0.1)
-                    : Colors.grey[100],
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected ? const Color(0xFF00897B) : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: selected ? const Color(0xFF00897B) : Colors.grey[500],
-                size: 22,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: selected ? const Color(0xFF00897B) : Colors.grey[600],
-                ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: auth.isLoading
+                    ? null
+                    : () => ref
+                          .read(authProvider.notifier)
+                          .sendOtp(email: email.text),
+                child: Text(auth.isLoading ? 'Sending…' : 'Send code'),
               ),
             ],
           ),

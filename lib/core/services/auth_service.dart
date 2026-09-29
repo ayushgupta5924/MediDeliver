@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../main.dart';
+import 'dart:async';
+import 'supabase_provider.dart';
 
 // ── User Role ──────────────────────────────────────
 
@@ -84,7 +85,6 @@ class AuthState {
   final String? error;
   final bool otpSent;
   final String? pendingEmail;
-  final UserRole? pendingRole;
 
   const AuthState({
     this.user,
@@ -92,7 +92,6 @@ class AuthState {
     this.error,
     this.otpSent = false,
     this.pendingEmail,
-    this.pendingRole,
   });
 
   bool get isAuthenticated => user != null;
@@ -103,7 +102,6 @@ class AuthState {
     String? error,
     bool? otpSent,
     String? pendingEmail,
-    UserRole? pendingRole,
   }) {
     return AuthState(
       user: user ?? this.user,
@@ -111,7 +109,6 @@ class AuthState {
       error: error,
       otpSent: otpSent ?? this.otpSent,
       pendingEmail: pendingEmail ?? this.pendingEmail,
-      pendingRole: pendingRole ?? this.pendingRole,
     );
   }
 }
@@ -119,138 +116,118 @@ class AuthState {
 // ── Auth Notifier ──────────────────────────────────
 
 class AuthNotifier extends Notifier<AuthState> {
+  SupabaseClient get _client => ref.read(supabaseProvider);
+  int _revision = 0;
+
   @override
   AuthState build() {
-    _checkSession();
+    final subscription = _client.auth.onAuthStateChange.listen((event) {
+      if (event.event == AuthChangeEvent.signedOut) {
+        _revision++;
+        state = const AuthState();
+      }
+    });
+    ref.onDispose(subscription.cancel);
+    Future.microtask(_checkSession);
     return const AuthState(isLoading: true);
   }
 
   Future<void> _checkSession() async {
-    final session = supabase.auth.currentSession;
-    if (session == null) {
-      state = const AuthState();
+    final revision = ++_revision;
+    final id = _client.auth.currentUser?.id;
+    if (id == null) {
+      if (ref.mounted) state = const AuthState();
       return;
     }
     try {
-      final profile =
-          await supabase
-              .from('profiles')
-              .select()
-              .eq('id', session.user.id)
-              .single();
-      state = AuthState(user: AppUser.fromMap(profile));
+      final profile = await _client
+          .from('profiles')
+          .select()
+          .eq('id', id)
+          .single();
+      if (ref.mounted && revision == _revision) {
+        state = AuthState(user: AppUser.fromMap(profile));
+      }
     } catch (_) {
-      state = const AuthState();
+      if (ref.mounted && revision == _revision) {
+        state = const AuthState(
+          error: 'Unable to load your account. Please sign in again.',
+        );
+      }
     }
   }
 
-  // ── Send OTP to email ──────────────────────────────
-
-  Future<void> sendOtp({required String email, required UserRole role}) async {
-    state = state.copyWith(isLoading: true, error: null);
-
+  Future<void> sendOtp({required String email}) async {
+    if (state.isLoading) return;
+    final normalized = email.trim().toLowerCase();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(normalized)) {
+      state = state.copyWith(error: 'Enter a valid email address.');
+      return;
+    }
+    state = state.copyWith(isLoading: true);
     try {
-      await supabase.auth.signInWithOtp(
-        email: email.trim().toLowerCase(),
-        // Pass role so the trigger creates profile correctly
-        emailRedirectTo: null,
-        data: {'role': role.value},
+      // All signups receive customer access. Staff roles are provisioned by an operator.
+      await _client.auth.signInWithOtp(
+        email: normalized,
         shouldCreateUser: true,
       );
-
-      state = state.copyWith(
-        isLoading: false,
-        otpSent: true,
-        pendingEmail: email.trim().toLowerCase(),
-        pendingRole: role,
-      );
+      if (ref.mounted) {
+        state = state.copyWith(
+          isLoading: false,
+          otpSent: true,
+          pendingEmail: normalized,
+        );
+      }
     } on AuthException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to send OTP. Check your email address.',
-      );
+      if (ref.mounted) {
+        state = state.copyWith(isLoading: false, error: e.message);
+      }
+    } catch (_) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Could not send code. Please try again.',
+        );
+      }
     }
   }
 
-  // ── Verify OTP ─────────────────────────────────────
-
   Future<void> verifyOtp({required String otp}) async {
-    if (state.pendingEmail == null) return;
-
-    state = state.copyWith(isLoading: true, error: null);
-
+    if (state.isLoading || state.pendingEmail == null) return;
+    if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
+      state = state.copyWith(error: 'Enter the complete six-digit code.');
+      return;
+    }
+    state = state.copyWith(isLoading: true);
     try {
-      final response = await supabase.auth.verifyOTP(
+      final response = await _client.auth.verifyOTP(
         email: state.pendingEmail!,
         token: otp,
         type: OtpType.email,
       );
-
       if (response.user == null) {
+        throw const AuthException('Verification failed');
+      }
+      // Profile creation is an atomic database trigger, never a client role upsert.
+      await _checkSession();
+    } catch (_) {
+      if (ref.mounted) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Verification failed. Please try again.',
+          error: 'Code expired or incorrect. Try again or request a new code.',
         );
-        return;
       }
-
-      // Wait briefly for the trigger to create the profile
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Fetch or create profile
-      Map<String, dynamic>? profile;
-      try {
-        profile =
-            await supabase
-                .from('profiles')
-                .select()
-                .eq('id', response.user!.id)
-                .single();
-      } catch (_) {
-        // Profile not created by trigger yet — create manually
-        await supabase.from('profiles').upsert({
-          'id': response.user!.id,
-          'email': state.pendingEmail,
-          'role': state.pendingRole?.value ?? 'customer',
-        });
-        profile =
-            await supabase
-                .from('profiles')
-                .select()
-                .eq('id', response.user!.id)
-                .single();
-      }
-
-      state = AuthState(user: AppUser.fromMap(profile));
-    } on AuthException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Incorrect OTP. Please try again.',
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Something went wrong. Please try again.',
-      );
     }
   }
 
-  // ── Logout ─────────────────────────────────────────
-
   Future<void> logout() async {
-    await supabase.auth.signOut();
-    state = const AuthState();
+    await _client.auth.signOut();
+    _revision++;
+    if (ref.mounted) state = const AuthState();
   }
 
   void resetOtp() {
-    state = state.copyWith(
-      otpSent: false,
-      pendingEmail: null,
-      pendingRole: null,
-      error: null,
-    );
+    state = const AuthState();
   }
 }
 
