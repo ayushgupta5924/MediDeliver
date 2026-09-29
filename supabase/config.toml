@@ -8,7 +8,7 @@ max_rows = 100
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 16
+major_version = 15
 [db.seed]
 enabled = false
 sql_paths = ["./seed.sql"]
