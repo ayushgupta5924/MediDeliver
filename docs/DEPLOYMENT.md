@@ -26,6 +26,7 @@ Set these Vercel environment variables for the intended environment:
 | `SUPABASE_ANON_KEY` | Its public publishable or legacy anon key |
 | `APP_URL` | The exact HTTPS production origin, no path |
 | `PAYMENTS_ENABLED` | `false` for the COD launch |
+| `DEMO_MODE` | `true` for the requested fictional demo; `false` only for an approved live operation |
 
 Only these public configuration values enter Flutter's compiled bundle. A service-role or secret key is rejected as a client key. No credentials are included in the source package. Vercel requires repository/account access, which was not available during this implementation. No deployment was initiated.
 

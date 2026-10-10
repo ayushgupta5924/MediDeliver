@@ -59,6 +59,26 @@ class MediDeliverApp extends HookConsumerWidget {
       title: 'MediDeliver',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
+      builder: (context, child) => Column(
+        children: [
+          if (SupabaseConstants.demoMode)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Text(
+                    'DEMO — Fictional pharmacy and orders. No medicines will be delivered. Use sample information only.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ),
+            ),
+          Expanded(child: child ?? const SizedBox.shrink()),
+        ],
+      ),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF00897B),

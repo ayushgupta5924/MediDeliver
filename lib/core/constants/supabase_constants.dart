@@ -6,6 +6,7 @@ class SupabaseConstants {
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   static const appUrl = String.fromEnvironment('APP_URL');
   static const paymentsEnabled = bool.fromEnvironment('PAYMENTS_ENABLED');
+  static const demoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: true);
   static bool get isConfigured =>
       validClientConfig(supabaseUrl, supabaseAnonKey, release: kReleaseMode);
 }
