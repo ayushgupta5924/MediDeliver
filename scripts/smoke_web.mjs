@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mkdirSync} from 'node:fs';
+import {mkdirSync,writeFileSync} from 'node:fs';
 const origin='https://medideliver-eight.vercel.app';
 mkdirSync('smoke-results',{recursive:true});
 const health=await fetch(`${origin}/api/health`);
@@ -12,10 +12,12 @@ try {
  for(const width of [1280,390]) {
   const page=await browser.newPage({viewport:{width,height:900}});
   const errors=[];
+  try {
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto(origin,{waitUntil:'networkidle'});
   const accessibility=page.getByRole('button',{name:'Enable accessibility'});
-  if(await accessibility.count()) await accessibility.click({force:true});
+  // Flutter places this screen-reader activation target outside the visual viewport.
+  if(await accessibility.count()) await accessibility.dispatchEvent('click');
   const demo=page.getByRole('button',{name:'Try the COD demo — no sign-in needed'});
   await demo.waitFor({timeout:60000});
   await page.screenshot({path:`smoke-results/login-${width}.png`});
@@ -35,7 +37,11 @@ try {
   await page.getByText('Cash collected: ₹209.50',{exact:true}).waitFor();
   await page.screenshot({path:`smoke-results/delivered-${width}.png`});
   assert.deepEqual(errors,[],'browser must not throw startup or interaction errors');
-  await page.close();
+  } catch(error) {
+    await page.screenshot({path:`smoke-results/failure-${width}.png`});
+    writeFileSync(`smoke-results/failure-${width}.txt`,await page.locator('body').ariaSnapshot());
+    throw error;
+  } finally {await page.close();}
   console.log(`PASS: ${width}px demo COD flow; health OK; prepaid disabled`);
  }
 } finally {await browser.close();}
