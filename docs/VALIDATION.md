@@ -17,5 +17,6 @@
 - Hosted schema equivalence, migrations, live OTP/SMTP, Storage access, separate-role browser workflow, backup/restore, load tests and native signed builds.
 - Razorpay sandbox checkout/webhooks/refunds; the owner has not created a merchant account and asked to prioritize COD. Payments default off.
 - Vercel deployment and remote CI. GitHub connector reports pull-only permission, Git push cannot authenticate, and no authenticated Vercel/Supabase administrator browser session is connected. No PR, hosted migration or deployment was created.
+- Vercel CLI account checks were also blocked by Windows `EPERM` errors while creating its configuration/cache directories. No credentials or account changes were made.
 
 This status deliberately does not label the release production-ready. See the deployment runbook for the exact remaining acceptance gates.
