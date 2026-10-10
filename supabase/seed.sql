@@ -11,9 +11,16 @@ update public.profiles set role='delivery_partner',full_name='Demo Rider',servic
 update public.profiles set role='admin',full_name='Demo Operator' where id='10000000-0000-0000-0000-000000000004';
 insert into public.pharmacies(id,name,postal_codes,active) values ('11000000-0000-0000-0000-000000000001','Demo Community Pharmacy',array['382010'],true) on conflict(id) do nothing;
 insert into public.pharmacy_members values ('11000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002') on conflict do nothing;
+
+update public.pharmacies set pickup_address='123 Fictional Pharmacy Road',contact_phone='+919876543211',license_reference='DEMO-NOT-A-REAL-LICENSE',verified_at=now()
+  where id='11000000-0000-0000-0000-000000000001';
+insert into public.inventory_lots(id,pharmacy_id,medicine_name,batch_number,expires_on,unit_price_paise,on_hand) values
+ ('13000000-0000-0000-0000-000000000001','11000000-0000-0000-0000-000000000001','Sample item A (fictional), pack of 10','DEMO-A',current_date+365,9225,100),
+ ('13000000-0000-0000-0000-000000000002','11000000-0000-0000-0000-000000000001','Sample item D (fictional), 50 g','DEMO-D',current_date+365,13200,100) on conflict(id) do nothing;
+
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
-select public.create_order('12000000-0000-0000-0000-000000000001','11000000-0000-0000-0000-000000000001','12 Fictional Garden, Demo District','382010','[{"name":"Sample item A (fictional), pack of 10","quantity":2}]',null,'Synthetic order for workflow testing.');
-select public.create_order('12000000-0000-0000-0000-000000000002','11000000-0000-0000-0000-000000000001','24 Fictional Garden, Demo District','382010','[{"name":"Sample item B (fictional), 100 ml","quantity":1}]',null,'Synthetic order awaiting pharmacy review.');
+select public.create_order('12000000-0000-0000-0000-000000000001','11000000-0000-0000-0000-000000000001','12 Fictional Garden, Demo District','382010','[{"name":"Sample item A (fictional), pack of 10","quantity":2}]',null,'Synthetic order for workflow testing.','+919876543210');
+select public.create_order('12000000-0000-0000-0000-000000000002','11000000-0000-0000-0000-000000000001','24 Fictional Garden, Demo District','382010','[{"name":"Sample item B (fictional), 100 ml","quantity":1}]',null,'Synthetic order awaiting pharmacy review.','+919876543210');
 -- Populate several lifecycle stages, with auditable actors and realistic order shapes.
 do $$
 declare o public.orders; action text;
@@ -21,7 +28,7 @@ begin
   select * into o from public.orders where request_id='12000000-0000-0000-0000-000000000001';
   if o.status='submitted' then
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
-    perform public.transition_order(o.id,'quote',18450);
+    perform public.quote_order(o.id,'[{"lot_id":"13000000-0000-0000-0000-000000000001","quantity":2}]',0,'Fictional pharmacy review');
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
     perform public.transition_order(o.id,'confirm');
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
@@ -33,18 +40,18 @@ begin
     perform public.transition_order(o.id,'deliver');
   end if;
   perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
-  perform public.create_order('12000000-0000-0000-0000-000000000003','11000000-0000-0000-0000-000000000001','36 Fictional Garden, Demo District','382010','[{"name":"Sample item C (fictional), pack of 15","quantity":1}]',null,'Synthetic request with unavailable stock.');
+  perform public.create_order('12000000-0000-0000-0000-000000000003','11000000-0000-0000-0000-000000000001','36 Fictional Garden, Demo District','382010','[{"name":"Sample item C (fictional), pack of 15","quantity":1}]',null,'Synthetic request with unavailable stock.','+919876543210');
   select * into o from public.orders where request_id='12000000-0000-0000-0000-000000000003';
   if o.status='submitted' then
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
     perform public.transition_order(o.id,'reject',null,'Requested item unavailable. Please contact the pharmacy.');
   end if;
   perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
-  perform public.create_order('12000000-0000-0000-0000-000000000004','11000000-0000-0000-0000-000000000001','48 Fictional Garden, Demo District','382010','[{"name":"Sample item D (fictional), 50 g","quantity":1}]',null,'Synthetic order ready for dispatch.');
+  perform public.create_order('12000000-0000-0000-0000-000000000004','11000000-0000-0000-0000-000000000001','48 Fictional Garden, Demo District','382010','[{"name":"Sample item D (fictional), 50 g","quantity":1}]',null,'Synthetic order ready for dispatch.','+919876543210');
   select * into o from public.orders where request_id='12000000-0000-0000-0000-000000000004';
   if o.status='submitted' then
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
-    perform public.transition_order(o.id,'quote',13200);
+    perform public.quote_order(o.id,'[{"lot_id":"13000000-0000-0000-0000-000000000002","quantity":1}]',0,'Fictional pharmacy review');
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
     perform public.transition_order(o.id,'confirm');
     perform set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);

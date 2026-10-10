@@ -124,6 +124,17 @@ class PatientUploadScreen extends HookConsumerWidget {
                         ),
                         onChanged: (v) => notifier.edit(postalCode: v.trim()),
                       ),
+                      TextFormField(
+                        initialValue: state.recipientPhone,
+                        maxLength: 16,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Delivery phone with country code',
+                          hintText: '+919876543210',
+                        ),
+                        onChanged: (v) =>
+                            notifier.edit(recipientPhone: v.trim()),
+                      ),
                       const SizedBox(height: 16),
                       SegmentedButton<OrderInputMode>(
                         segments: const [
@@ -230,7 +241,7 @@ class PatientUploadScreen extends HookConsumerWidget {
                         ),
                       ),
                       const Text(
-                        'Prices and delivery availability are confirmed after review. This pilot supports cash on delivery only.',
+                        'Prices and delivery availability are confirmed after review. Choose cash on delivery or, when available, online payment after accepting the quote.',
                       ),
                     ],
                   ),

@@ -1,0 +1,1 @@
+Unmodified passkeys web SDK from https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js. Required by passkeys_web 2.9.0 (transitive Supabase dependency) before Flutter plugin registration. Vendored to avoid a runtime CDN dependency.

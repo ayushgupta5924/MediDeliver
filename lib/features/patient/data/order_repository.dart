@@ -12,6 +12,7 @@ abstract class OrderRepository {
     required String pharmacyId,
     required String address,
     required String postalCode,
+    required String recipientPhone,
     required List<Map<String, dynamic>> items,
     String? prescriptionPath,
     String? notes,
@@ -39,6 +40,7 @@ class SupabaseOrderRepository implements OrderRepository {
         .from('pharmacies')
         .select('id,name,postal_codes')
         .eq('active', true)
+        .not('verified_at', 'is', null)
         .order('name')
         .limit(100);
     return rows.map(Pharmacy.fromMap).toList();
@@ -88,6 +90,7 @@ class SupabaseOrderRepository implements OrderRepository {
     required String pharmacyId,
     required String address,
     required String postalCode,
+    required String recipientPhone,
     required List<Map<String, dynamic>> items,
     String? prescriptionPath,
     String? notes,
@@ -99,6 +102,7 @@ class SupabaseOrderRepository implements OrderRepository {
         'p_pharmacy_id': pharmacyId,
         'p_address': address,
         'p_postal_code': postalCode,
+        'p_recipient_phone': recipientPhone,
         'p_items': items,
         'p_prescription_path': prescriptionPath,
         'p_notes': notes ?? '',

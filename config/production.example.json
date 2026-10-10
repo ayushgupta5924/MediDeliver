@@ -1,0 +1,6 @@
+{
+  "SUPABASE_URL":"https://mehtwvkvbjytnpjyzhxr.supabase.co",
+  "SUPABASE_ANON_KEY":"REPLACE_WITH_PUBLIC_PUBLISHABLE_OR_ANON_KEY",
+  "APP_URL":"https://YOUR-PRODUCTION-DOMAIN",
+  "PAYMENTS_ENABLED":"false"
+}

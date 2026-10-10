@@ -4,6 +4,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'supabase_provider.dart';
 
+String authErrorMessage(Object error, {bool verifying = false}) {
+  if (error is AuthRetryableFetchException || error is TimeoutException) {
+    return 'Cannot connect right now. Check your internet connection or try another network, then retry.';
+  }
+  if (error is AuthException && error.statusCode == '429') {
+    return 'Too many attempts. Wait a minute before trying again.';
+  }
+  if (verifying && error is AuthException && error.statusCode == '403') {
+    return 'This code is expired or incorrect. Check the code or request a new one.';
+  }
+  return verifying
+      ? 'Could not verify your code. Please try again.'
+      : 'Could not send your code. Please try again shortly.';
+}
+
 // ── User Role ──────────────────────────────────────
 
 enum UserRole {
@@ -121,12 +136,26 @@ class AuthNotifier extends Notifier<AuthState> {
 
   @override
   AuthState build() {
-    final subscription = _client.auth.onAuthStateChange.listen((event) {
-      if (event.event == AuthChangeEvent.signedOut) {
-        _revision++;
-        state = const AuthState();
-      }
-    });
+    final subscription = _client.auth.onAuthStateChange.listen(
+      (event) {
+        if (event.event == AuthChangeEvent.signedOut) {
+          _revision++;
+          state = const AuthState();
+        } else if (event.event == AuthChangeEvent.signedIn ||
+            event.event == AuthChangeEvent.tokenRefreshed ||
+            event.event == AuthChangeEvent.userUpdated) {
+          Future.microtask(_checkSession);
+        }
+      },
+      onError: (Object _) {
+        if (ref.mounted) {
+          state = state.copyWith(
+            isLoading: false,
+            error: 'Connection interrupted. Please retry.',
+          );
+        }
+      },
+    );
     ref.onDispose(subscription.cancel);
     Future.microtask(_checkSession);
     return const AuthState(isLoading: true);
@@ -178,15 +207,11 @@ class AuthNotifier extends Notifier<AuthState> {
           pendingEmail: normalized,
         );
       }
-    } on AuthException catch (e) {
-      if (ref.mounted) {
-        state = state.copyWith(isLoading: false, error: e.message);
-      }
-    } catch (_) {
+    } catch (error) {
       if (ref.mounted) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Could not send code. Please try again.',
+          error: authErrorMessage(error),
         );
       }
     }
@@ -210,11 +235,11 @@ class AuthNotifier extends Notifier<AuthState> {
       }
       // Profile creation is an atomic database trigger, never a client role upsert.
       await _checkSession();
-    } catch (_) {
+    } catch (error) {
       if (ref.mounted) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Code expired or incorrect. Try again or request a new code.',
+          error: authErrorMessage(error, verifying: true),
         );
       }
     }
@@ -227,6 +252,7 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   void resetOtp() {
+    _revision++;
     state = const AuthState();
   }
 }
