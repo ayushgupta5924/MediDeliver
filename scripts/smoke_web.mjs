@@ -22,7 +22,7 @@ try {
   await demo.waitFor({timeout:60000});
   await page.screenshot({path:`smoke-results/login-${width}.png`});
   await demo.click();
-  const tap=async name=>page.getByRole('button',{name,exact:true}).click();
+  const tap=async name=>page.getByRole(['Customer','Pharmacy','Rider','Operations'].includes(name)?'checkbox':'button',{name,exact:true}).click();
   await tap('Pharmacy');
   await tap('Verified prescription / eligible medicine: quote');
   await tap('Customer');
@@ -45,4 +45,5 @@ try {
   console.log(`PASS: ${width}px demo COD flow; health OK; prepaid disabled`);
  }
 } finally {await browser.close();}
+
 
