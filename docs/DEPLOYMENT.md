@@ -58,3 +58,9 @@ The application uses hash routing, so no SPA rewrite is needed. Checkout has its
 If a release fails, disable new pharmacy intake (`active=false`) through a trusted operator and keep processing existing orders safely. Roll back frontend deployment only if compatible with the current schema; these changes intentionally tighten submission/quote requirements. Restore database backups only through a reviewed recovery procedure, never as a casual rollback of live orders/payments.
 
 References: [Supabase production checklist](https://supabase.com/docs/guides/deployment/going-into-prod), [Razorpay orders lookup](https://razorpay.com/docs/api/orders/fetch-all/), [Vercel Node functions](https://vercel.com/docs/functions/runtimes/node-js).
+
+## Browser reports ERR_NAME_NOT_RESOLVED
+
+This error occurs before any application code loads. On 10 October 2026 the owner's router DNS (IPv6 `fe80::1` and IPv4 `192.168.1.254`) returned NXDOMAIN for `medideliver-eight.vercel.app`, while Cloudflare `1.1.1.1` resolved it and certificate-validated HTTPS returned root/health HTTP 200. This is a local resolver failure, not an application or Vercel build failure.
+
+Compare `nslookup medideliver-eight.vercel.app` with `nslookup medideliver-eight.vercel.app 1.1.1.1`. If only the router resolver fails, configure a working DNS provider on the affected network adapter, flush the DNS cache and reopen the browser tab. Administrator access is required for Windows adapter changes. Apply the same check to the configured Supabase hostname so authenticated workflows can connect too. Do not pin Vercel IPs in the hosts file or disable TLS validation.
