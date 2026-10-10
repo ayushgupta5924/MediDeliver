@@ -10,6 +10,7 @@
     "build": "bash scripts/build_vercel.sh"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8"
+    "@electric-sql/pglite": "^0.5.8",
+    "playwright": "1.64.0"
   }
 }
