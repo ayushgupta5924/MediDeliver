@@ -5,6 +5,8 @@ create function pg_temp.denied(statement text) returns boolean language plpgsql 
 begin execute statement;return false;exception when insufficient_privilege then return true;end $$;
 create function pg_temp.invalid(statement text) returns boolean language plpgsql as $$
 begin execute statement;return false;exception when others then return true;end $$;
+create function pg_temp.expired_delivery(statement text) returns boolean language plpgsql as $$
+begin execute statement;return false;exception when raise_exception then return sqlerrm='Reserved stock has expired; cancel and review a new request';end $$;
 insert into auth.users(id,email) values
 ('30000000-0000-4000-8000-000000000001','payment-customer@example.invalid'),
 ('30000000-0000-4000-8000-000000000002','payment-pharmacy@example.invalid'),
@@ -89,6 +91,17 @@ select public.transition_order(:'delivered_id','ready');
 select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000003',true);
 select public.transition_order(:'delivered_id','accept');
 select public.transition_order(:'delivered_id','pickup');
+-- Simulate a lot expiring in transit. Delivery must not deduct stock or record cash.
+reset role;
+update public.inventory_lots set expires_on=current_date where id='33000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select pg_temp.check_true(pg_temp.expired_delivery(format('select public.transition_order(%L,''deliver'')',:'delivered_id')),'expired stock cannot be delivered');
+reset role;
+select pg_temp.check_true((select status='picked_up' from public.orders where id=:'delivered_id'),'failed delivery transition leaves status unchanged');
+select pg_temp.check_true((select reserved=1 and on_hand=2 from public.inventory_lots where id='33000000-0000-4000-8000-000000000001'),'expired delivery preserves reservation and stock');
+-- Restore only this synthetic fixture so the successful delivery path can continue.
+update public.inventory_lots set expires_on=current_date+365 where id='33000000-0000-4000-8000-000000000001';
+set local role authenticated;
 select public.transition_order(:'delivered_id','deliver');
 select pg_temp.check_true(public.list_orders(0)->0->>'delivery_address'='','completed delivery hides exact address from rider');
 reset role;
