@@ -51,5 +51,17 @@ jobs:
       - run: psql -X -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -f supabase/tests/production.sql
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - name: Test authenticated users and private Storage HTTP
+        shell: bash
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase-test.env"
+          set -a
+          source "$RUNNER_TEMP/supabase-test.env"
+          set +a
+          export HOSTED_TEST_PROJECT_REF=local
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_ANON_KEY="$ANON_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          python scripts/test_hosted.py
       - if: always()
         run: supabase stop --no-backup

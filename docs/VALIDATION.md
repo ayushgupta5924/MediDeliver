@@ -20,8 +20,14 @@ The deployed smoke workflow checks desktop (1280 px) and narrow (390 px) COD dem
 - Validate real staff accounts, private prescription uploads and signed URLs through the hosted UI before accepting real requests. Real pharmacy identity, license verification, service coverage, dispensing procedures, privacy/retention policy and support ownership require an actual operator.
 - Backup restoration, expected-load testing and native signed Android/iOS releases have not been completed.
 - Supabase upgrades were applied manually; reconcile migration history before later CLI pushes.
-- Vercel GitHub repository connection failed; CLI deployment works, but automatic deployment on push is not configured.
+- PR #2 merged as `1b7860f`. Vercel GitHub repository connection is now configured with `main` as the production branch. Verify the follow-up commit deployment before claiming the automatic build passed.
 - The local Windows resolver cannot resolve the new deployment/Supabase hosts. Certificate-valid public DNS probes and GitHub-hosted tests work; no system DNS settings were changed.
 - Razorpay remains disabled at the owner's request. Merchant onboarding and sandbox checkout/webhook/refund verification are deferred.
 
 This is a deployed COD demo, not certification for real pharmacy operations.
+
+## Authenticated HTTP acceptance harness
+
+`scripts/test_hosted.py` creates six isolated users and tests Auth, separate role access, private PNG upload, disallowed MIME/size/path, signed image access and expiry, idempotent requests, itemized quotes, inventory reservation, concurrent rider assignment, COD delivery and recipient redaction. All assertions use user JWTs; the service key is confined to fixture setup and UUID-scoped cleanup. Existing seed data is preserved. The database CI job runs this suite against its local Supabase HTTP stack.
+
+For a hosted run, set `HOSTED_TEST_PROJECT_REF`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` securely in the process environment, then run `python scripts/test_hosted.py`. Never commit or print the service key. Hosted execution still requires authorized CLI/admin credentials; a prepared script is not evidence that the hosted tests passed.
