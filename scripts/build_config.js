@@ -1,5 +1,7 @@
 import {writeFileSync} from 'node:fs';
-const {SUPABASE_URL:url,SUPABASE_ANON_KEY:key,APP_URL:app,PAYMENTS_ENABLED:payments='false',DEMO_MODE:demo='true'}=process.env;
+const {SUPABASE_URL:url,SUPABASE_ANON_KEY:key,APP_URL:explicitApp,PAYMENTS_ENABLED:payments='false',DEMO_MODE:demo='true'}=process.env;
+const host=process.env.VERCEL_ENV==='production'?process.env.VERCEL_PROJECT_PRODUCTION_URL:process.env.VERCEL_URL;
+const app=explicitApp||(host?`https://${host}`:null);
 if(!url||!key||!app) throw Error('Set SUPABASE_URL, SUPABASE_ANON_KEY and APP_URL');
 for(const value of [url,app]) {
   const u=new URL(value);

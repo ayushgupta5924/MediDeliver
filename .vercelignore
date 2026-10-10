@@ -1,0 +1,10 @@
+.git
+.env*
+.dart_tool
+node_modules
+build
+coverage
+config/development.json
+config/build.json
+supabase/.temp
+supabase/.branches

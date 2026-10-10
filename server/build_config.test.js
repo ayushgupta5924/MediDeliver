@@ -38,3 +38,8 @@ test('fictional demo cannot enable checkout even with complete server settings',
   assert.notEqual(run({PAYMENTS_ENABLED:'true',RAZORPAY_KEY_ID:'test',RAZORPAY_KEY_SECRET:'test',RAZORPAY_WEBHOOK_SECRET:'test',SUPABASE_SERVICE_ROLE_KEY:'test',CRON_SECRET:'test'}).status,0);
   assert.equal(run({DEMO_MODE:'false'}).status,0);
 });
+
+test('first Vercel deployment derives its URL without using a placeholder origin',()=>{
+  assert.equal(run({APP_URL:'',VERCEL_ENV:'preview',VERCEL_URL:'demo-abc.vercel.app'}).config.APP_URL,'https://demo-abc.vercel.app');
+  assert.equal(run({APP_URL:'',VERCEL_ENV:'production',VERCEL_PROJECT_PRODUCTION_URL:'demo.vercel.app'}).config.APP_URL,'https://demo.vercel.app');
+});

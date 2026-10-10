@@ -57,3 +57,4 @@ supabase/.branches/
 
 node_modules/
 .vercel/
+.vercel
