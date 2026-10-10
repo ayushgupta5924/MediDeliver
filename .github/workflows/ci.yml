@@ -14,11 +14,26 @@ jobs:
           flutter-version: '3.44.2'
           channel: stable
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze --no-pub
       - run: flutter test --no-pub
-      - run: flutter build web --release --no-pub --dart-define=SUPABASE_URL=https://example.supabase.co --dart-define=SUPABASE_ANON_KEY=ci-placeholder
+      - run: flutter build web --release --no-pub --no-web-resources-cdn --dart-define=SUPABASE_URL=https://example.supabase.co --dart-define=SUPABASE_ANON_KEY=sb_publishable_ci_placeholder_not_a_real_key
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build-ci-placeholder
+          path: build/web
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/test_database.mjs
   database:
     runs-on: ubuntu-latest
     steps:
@@ -31,6 +46,9 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - run: python scripts/test_concurrency.py
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: psql -X -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -f supabase/tests/production.sql
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - if: always()

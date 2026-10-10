@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
+import 'core/services/timeout_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,10 +24,26 @@ void main() async {
     return;
   }
   // Initialize Supabase
-  await Supabase.initialize(
-    url: SupabaseConstants.supabaseUrl,
-    publishableKey: SupabaseConstants.supabaseAnonKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: SupabaseConstants.supabaseUrl,
+      publishableKey: SupabaseConstants.supabaseAnonKey,
+      httpClient: TimeoutClient(),
+    );
+  } catch (_) {
+    runApp(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text(
+              'Could not start MediDeliver. Check your connection and reopen the app.',
+            ),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
 
   runApp(const ProviderScope(child: MediDeliverApp()));
 }

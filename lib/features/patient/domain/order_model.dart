@@ -5,6 +5,10 @@ class OrderModel {
   final List<Map<String, dynamic>> items;
   final int? quotePaise;
   final String paymentStatus;
+  final String? paymentMethod;
+  final String recipientPhone, pickupAddress, pharmacyPhone;
+  final List<Map<String, dynamic>> quoteItems;
+  final int deliveryFeePaise;
   const OrderModel({
     required this.id,
     required this.orderNumber,
@@ -20,6 +24,12 @@ class OrderModel {
     this.riderId,
     this.quotePaise,
     this.paymentStatus = 'unpaid',
+    this.paymentMethod,
+    this.recipientPhone = '',
+    this.pickupAddress = '',
+    this.pharmacyPhone = '',
+    this.quoteItems = const [],
+    this.deliveryFeePaise = 0,
   });
   factory OrderModel.fromMap(Map<String, dynamic> m) => OrderModel(
     id: m['id'] as String,
@@ -38,6 +48,14 @@ class OrderModel {
     riderId: m['rider_id'] as String?,
     quotePaise: (m['quote_paise'] as num?)?.toInt(),
     paymentStatus: m['payment_status'] as String? ?? 'unpaid',
+    paymentMethod: m['payment_method'] as String?,
+    recipientPhone: m['recipient_phone'] as String? ?? '',
+    pickupAddress: m['pickup_address'] as String? ?? '',
+    pharmacyPhone: m['pharmacy_phone'] as String? ?? '',
+    quoteItems: (m['quote_items'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(),
+    deliveryFeePaise: (m['delivery_fee_paise'] as num?)?.toInt() ?? 0,
   );
 }
 

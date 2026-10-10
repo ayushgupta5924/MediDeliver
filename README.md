@@ -2,6 +2,8 @@
 
 Flutter + Supabase medicine-request and cash-on-delivery pilot. Customers request pharmacy review, an approved pharmacy quotes the total, customers confirm, and approved riders fulfill the delivery. No online payment capture or automatic prescription approval is enabled.
 
+The current release candidate adds itemized pharmacy quotes, batch/expiry inventory and reservations, delivery/pickup contacts, Vercel hosting configuration, and a feature-gated Razorpay server integration. **It is not yet deployed or validated for production.** Start with [validation status](docs/VALIDATION.md) and the [deployment runbook](docs/DEPLOYMENT.md). COD is the immediate launch priority; `PAYMENTS_ENABLED=false` until merchant onboarding and integration tests are complete.
+
 ## Requirements and local setup
 
 - Flutter 3.44.2 / Dart 3.12.2 (CI versions), PostgreSQL client, Supabase CLI and Docker for the complete local backend.
@@ -30,14 +32,16 @@ Sign out/in after changing roles. Only trusted database administration may chang
 
 `submitted -> quoted -> confirmed -> preparing -> ready -> assigned -> picked_up -> delivered`
 
-- A pharmacy quote records its verification decision and an inclusive total in integer paise. Customer confirmation selects cash on delivery.
+- A pharmacy quote records the reviewer and decision, exact medicine/pack, batch, expiry, quantity, inclusive unit prices and delivery fee. The database calculates integer-paise totals and reserves stock atomically. Customer confirmation selects COD or, when configured, verified Razorpay checkout.
 - Customers can cancel until preparation starts; pharmacy staff can reject before preparation with a reason.
 - Riders only see available deliveries in their service postal codes. Medical items and prescriptions are omitted from rider responses. Exact delivery addresses appear only after assignment.
 - Acceptance locks the order row; only one rider can win. Pickup and delivery require the assigned rider. Delivery explicitly confirms cash collection.
 - Failed deliveries record a reason. An operator can redispatch only after confirming return to the pharmacy.
-- Events record the actor and each status transition. Paginated lists return at most 25 records. Pull-to-refresh retrieves current status.
+- Events record the actor and each status transition. Paginated lists return at most 25 records. The first page refreshes every 30 seconds in the foreground and on app resume; pull-to-refresh and manual refresh are available on every page.
 - Request IDs make retries of an unchanged submission idempotent. The client retains the key while that draft is open. Following an app restart or editing a failed draft, check order history before submitting again; durable offline drafts are not yet implemented.
 - Prescription uploads are private, limited to JPEG/PNG and 5 MB, immutable to clients, and viewed through 60-second signed URLs. Users must not include medical data in application logs.
+- Verified pharmacies require a license reference, pickup address and contact phone. Requests require a delivery phone in international format. Riders receive that phone only while assigned to an active/failed delivery; medical items and quote lines remain redacted.
+- Online payment amounts come from the stored quote. Only server-side functions can confirm capture or refunds; signed webhook duplicates are idempotent. Late captures after cancellation or inventory expiry queue a full refund. Payments remain disabled by default.
 
 ## Fictional demonstration data
 
@@ -57,10 +61,16 @@ flutter analyze --no-pub
 flutter test --no-pub
 psql -X -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -f supabase/tests/workflow.sql
 python scripts/test_concurrency.py
-flutter build web --release --dart-define-from-file=config/development.json
+psql -X -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -f supabase/tests/production.sql
+npm ci
+npm test
+node scripts/test_database.mjs
+flutter build web --release --dart-define-from-file=config/production.json
 ```
 
 Database tests target a disposable database. They verify profile escalation denial, customer/pharmacy isolation, prescription storage policies, input validation, the complete COD lifecycle, audit events, idempotent creation and competing riders. The concurrency test uses separate database connections. CI starts the complete Supabase stack. Local PostgreSQL-only harness results do not verify Auth delivery or the Storage HTTP service.
+
+For the release build, copy `config/production.example.json` to the ignored `config/production.json` and supply the approved HTTPS public settings. A release configured with an HTTP development endpoint will refuse to initialize. Vercel builds generate this configuration from environment variables instead.
 
 ## Mobile release
 
@@ -73,9 +83,9 @@ Publish the Flutter `build/web` output for a web deployment, not the repository 
 Before a real launch, configure and validate:
 
 - Hosted Supabase migrations, OTP email delivery, private Storage access and backups/restore.
-- Pharmacy verification, medicine eligibility, itemized catalog/stock and batch/expiry handling. The current names are requests, not a validated medicine catalog.
-- Razorpay server-side orders, verified/idempotent webhooks, reconciliation and refunds before offering prepaid checkout. Package declarations alone do not enable payments.
-- Push notifications, live dispatch/location, ETA calculation, customer support and monitoring. Current status refresh is manual.
+- Real pharmacy verification and medicine eligibility procedures. Stock/batch/expiry and itemized quotes are implemented; real inventory and dispensing decisions must be supplied by the approved pharmacy.
+- Razorpay merchant onboarding, keys, signed webhooks and reconciliation configuration plus sandbox tests before enabling the included prepaid integration.
+- Push notifications, live location/ETA, staffed customer support and uptime monitoring. Foreground order polling is implemented; background push and live GPS are not.
 - Service-area operating rules, privacy/retention process and the applicable dispensing requirements for the actual operating jurisdiction.
 - Load tests using expected order volume and observed query plans. No throughput capacity is claimed by the included functional tests.
 

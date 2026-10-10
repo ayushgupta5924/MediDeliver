@@ -26,6 +26,11 @@ insert into public.pharmacy_members values
  ('21000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003'),
  ('21000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000004');
 
+
+update public.pharmacies set pickup_address='123 Fictional Pharmacy Road',contact_phone='+919876543211',license_reference='TEST-ONLY',verified_at=now();
+insert into public.inventory_lots(id,pharmacy_id,medicine_name,batch_number,expires_on,unit_price_paise,on_hand) values
+('23000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','Sample medicine','TEST-BATCH',current_date+365,12525,100);
+
 set local role anon;
 select pg_temp.check_true(pg_temp.denied('select public.list_orders(0)'),'anonymous order access denied');
 reset role;
@@ -34,11 +39,11 @@ select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001'
 select pg_temp.check_true(pg_temp.denied($q$update public.profiles set role='admin'$q$),'profile escalation denied');
 select pg_temp.check_true(pg_temp.denied($q$insert into public.orders(customer_id) values(auth.uid())$q$),'direct order insert denied');
 select pg_temp.check_true(pg_temp.denied($q$update public.orders set status='delivered'$q$),'direct status update denied');
-select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','999999','[{"name":"Sample","quantity":1}]')$q$),'serviceability enforced');
-select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample","quantity":-1}]')$q$),'quantity validated');
-select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample"}]')$q$),'missing quantity rejected');
-select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample medicine","quantity":2}]')->>'id' as order_id \gset
-select pg_temp.check_true(public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample medicine","quantity":2}]')->>'id'=:'order_id','retry returns same order');
+select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','999999','[{"name":"Sample","quantity":1}]',null,'','+919876543210')$q$),'serviceability enforced');
+select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample","quantity":-1}]',null,'','+919876543210')$q$),'quantity validated');
+select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample"}]',null,'','+919876543210')$q$),'missing quantity rejected');
+select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample medicine","quantity":2}]',null,'','+919876543210')->>'id' as order_id \gset
+select pg_temp.check_true(public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample medicine","quantity":2}]',null,'','+919876543210')->>'id'=:'order_id','retry returns same order');
 select pg_temp.check_true((select count(*)=1 from public.order_events where order_id=:'order_id'),'retry creates one event');
 select pg_temp.check_true(pg_temp.denied(format('select public.transition_order(%L,''quote'',1000)',:'order_id')),'customer cannot quote');
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000002',true);
@@ -48,7 +53,7 @@ select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000004'
 select pg_temp.check_true((select count(*)=0 from public.orders where id=:'order_id'),'other pharmacy cannot read');
 select pg_temp.check_true(pg_temp.denied(format('select public.transition_order(%L,''quote'',1000)',:'order_id')),'other pharmacy cannot quote');
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000003',true);
-select public.transition_order(:'order_id','quote',25050);
+select public.quote_order(:'order_id','[{"lot_id":"23000000-0000-0000-0000-000000000001","quantity":2}]',0,'Test prescription and eligibility review');
 select pg_temp.check_true(pg_temp.denied(format('select public.transition_order(%L,''ready'')',:'order_id')),'cannot skip customer confirmation');
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001',true);
 select public.transition_order(:'order_id','confirm');
@@ -76,7 +81,7 @@ reset role;
 insert into storage.objects(bucket_id,name) values ('prescriptions','20000000-0000-0000-0000-000000000001/22000000-0000-0000-0000-000000000002.jpg');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001',true);
-select public.create_order('22000000-0000-0000-0000-000000000002','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[]','20000000-0000-0000-0000-000000000001/22000000-0000-0000-0000-000000000002.jpg');
+select public.create_order('22000000-0000-0000-0000-000000000002','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[]','20000000-0000-0000-0000-000000000001/22000000-0000-0000-0000-000000000002.jpg','','+919876543210');
 select pg_temp.check_true((select count(*)=1 from storage.objects where bucket_id='prescriptions'),'owner reads own prescription');
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000002',true);
 select pg_temp.check_true((select count(*)=0 from storage.objects where bucket_id='prescriptions'),'other customer cannot read image');
@@ -89,15 +94,15 @@ select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000005'
 select pg_temp.check_true((select count(*)=0 from storage.objects where bucket_id='prescriptions'),'rider cannot read prescription');
 
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001',true);
-select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','999 Different Address','382010','[{"name":"Sample medicine","quantity":2}]')$q$),'idempotency key cannot change payload');
-select public.create_order('22000000-0000-0000-0000-000000000003','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample","quantity":1}]')->>'id' as cancelled_id \gset
+select pg_temp.check_true(pg_temp.invalid($q$select public.create_order('22000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000001','999 Different Address','382010','[{"name":"Sample medicine","quantity":2}]',null,'','+919876543210')$q$),'idempotency key cannot change payload');
+select public.create_order('22000000-0000-0000-0000-000000000003','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample","quantity":1}]',null,'','+919876543210')->>'id' as cancelled_id \gset
 select public.transition_order(:'cancelled_id','cancel');
 select pg_temp.check_true((select status='cancelled' from public.orders where id=:'cancelled_id'),'customer cancellation persists');
 select pg_temp.check_true(pg_temp.denied(format('select public.transition_order(%L,''confirm'')',:'cancelled_id')),'cancelled order cannot resume');
-select public.create_order('22000000-0000-0000-0000-000000000004','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample","quantity":1}]')->>'id' as failed_id \gset
+select public.create_order('22000000-0000-0000-0000-000000000004','21000000-0000-0000-0000-000000000001','123 Fictional Road','382010','[{"name":"Sample","quantity":1}]',null,'','+919876543210')->>'id' as failed_id \gset
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000003',true);
 select pg_temp.check_true(pg_temp.invalid(format('select public.transition_order(%L,''reject'',null,null)',:'failed_id')),'rejection needs a reason');
-select public.transition_order(:'failed_id','quote',10000);
+select public.quote_order(:'failed_id','[{"lot_id":"23000000-0000-0000-0000-000000000001","quantity":1}]',0,'Test prescription and eligibility review');
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001',true);
 select public.transition_order(:'failed_id','confirm');
 select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000003',true);

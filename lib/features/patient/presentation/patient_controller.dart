@@ -21,7 +21,7 @@ class PatientState {
   final bool isUploading;
   final String? errorMessage;
   final OrderModel? submittedOrder;
-  final String address, postalCode, notes;
+  final String address, postalCode, notes, recipientPhone;
   final String? pharmacyId;
   const PatientState({
     this.inputMode = OrderInputMode.prescription,
@@ -33,12 +33,14 @@ class PatientState {
     this.address = '',
     this.postalCode = '',
     this.notes = '',
+    this.recipientPhone = '',
     this.pharmacyId,
   });
   bool get canSubmit =>
       !isUploading &&
       pharmacyId != null &&
       address.trim().length >= 10 &&
+      RegExp(r'^\+[1-9][0-9]{7,14}$').hasMatch(recipientPhone) &&
       RegExp(r'^\d{6}$').hasMatch(postalCode) &&
       (inputMode == OrderInputMode.prescription
           ? selectedImage != null
@@ -53,6 +55,7 @@ class PatientState {
     String? address,
     String? postalCode,
     String? notes,
+    String? recipientPhone,
     String? pharmacyId,
     bool clearImage = false,
   }) => PatientState(
@@ -65,14 +68,17 @@ class PatientState {
     address: address ?? this.address,
     postalCode: postalCode ?? this.postalCode,
     notes: notes ?? this.notes,
+    recipientPhone: recipientPhone ?? this.recipientPhone,
     pharmacyId: pharmacyId ?? this.pharmacyId,
   );
 }
 
 class PatientNotifier extends Notifier<PatientState> {
   String? _requestId;
+  int _generation = 0;
   @override
   PatientState build() {
+    _generation++;
     ref.watch(authProvider.select((s) => s.user?.id));
     _requestId = null;
     return const PatientState();
@@ -82,6 +88,7 @@ class PatientNotifier extends Notifier<PatientState> {
     String? address,
     String? postalCode,
     String? notes,
+    String? recipientPhone,
     String? pharmacyId,
   }) {
     if (state.isUploading) return;
@@ -90,6 +97,7 @@ class PatientNotifier extends Notifier<PatientState> {
       address: address,
       postalCode: postalCode,
       notes: notes,
+      recipientPhone: recipientPhone,
       pharmacyId: pharmacyId,
     );
   }
@@ -137,18 +145,25 @@ class PatientNotifier extends Notifier<PatientState> {
 
   Future<void> pick(ImageSource source) async {
     if (state.isUploading) return;
+    final generation = _generation;
+    final actorId = ref.read(authProvider).user?.id;
     try {
       final image = await ImagePicker().pickImage(
         source: source,
         imageQuality: 85,
         maxWidth: 1600,
       );
-      if (image != null && ref.mounted) {
+      if (image != null &&
+          ref.mounted &&
+          generation == _generation &&
+          ref.read(authProvider).user?.id == actorId) {
         _requestId = null;
         state = state.copyWith(selectedImage: image);
       }
     } catch (_) {
-      if (ref.mounted) {
+      if (ref.mounted &&
+          generation == _generation &&
+          ref.read(authProvider).user?.id == actorId) {
         state = state.copyWith(
           errorMessage:
               'Could not open images. Check camera/photo permissions.',
@@ -174,6 +189,7 @@ class PatientNotifier extends Notifier<PatientState> {
         pharmacyId: input.pharmacyId!,
         address: input.address.trim(),
         postalCode: input.postalCode,
+        recipientPhone: input.recipientPhone,
         notes: input.notes,
         prescriptionPath: path,
         items: input.inputMode == OrderInputMode.typed

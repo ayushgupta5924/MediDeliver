@@ -1,0 +1,23 @@
+name: Reconcile prepaid payments
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: payment-reconciliation
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    if: vars.PAYMENTS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process pending captures and refunds
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --max-time 300 --retry 0 --request POST --header "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/reconcile"

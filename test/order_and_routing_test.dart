@@ -43,6 +43,7 @@ void main() {
         pharmacyId: any(named: 'pharmacyId'),
         address: any(named: 'address'),
         postalCode: any(named: 'postalCode'),
+        recipientPhone: any(named: 'recipientPhone'),
         items: any(named: 'items'),
         prescriptionPath: any(named: 'prescriptionPath'),
         notes: any(named: 'notes'),
@@ -60,6 +61,7 @@ void main() {
     notifier.edit(
       address: '123 Fictional Road',
       postalCode: '382010',
+      recipientPhone: '+919876543210',
       pharmacyId: 'pharmacy',
     );
     notifier.addMedicine('Fictional item');
@@ -75,6 +77,7 @@ void main() {
         pharmacyName: '',
         deliveryAddress: '123 Fictional Road',
         postalCode: '382010',
+        recipientPhone: '+919876543210',
         customerNotes: '',
         items: [],
       ),
@@ -121,6 +124,7 @@ void main() {
           pharmacyId: any(named: 'pharmacyId'),
           address: any(named: 'address'),
           postalCode: any(named: 'postalCode'),
+          recipientPhone: any(named: 'recipientPhone'),
           items: any(named: 'items'),
           prescriptionPath: any(named: 'prescriptionPath'),
           notes: any(named: 'notes'),
@@ -142,6 +146,7 @@ void main() {
           pharmacyName: 'Demo',
           deliveryAddress: '123 Fictional Road',
           postalCode: '382010',
+          recipientPhone: '+919876543210',
           customerNotes: '',
           items: [],
         );
@@ -158,6 +163,7 @@ void main() {
       notifier.edit(
         address: '123 Fictional Road',
         postalCode: '382010',
+        recipientPhone: '+919876543210',
         pharmacyId: 'pharmacy',
         notes: 'Call at gate',
       );

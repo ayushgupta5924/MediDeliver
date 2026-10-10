@@ -54,3 +54,6 @@ android/key.properties
 *.keystore
 supabase/.temp/
 supabase/.branches/
+
+node_modules/
+.vercel/

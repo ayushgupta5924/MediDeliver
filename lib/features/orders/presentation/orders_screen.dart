@@ -1,31 +1,49 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/supabase_provider.dart';
+import '../../../core/services/payment_service.dart';
+import '../../../core/constants/supabase_constants.dart';
+import 'inventory_screen.dart';
 import '../../patient/data/order_repository.dart';
 import '../../patient/domain/order_model.dart';
 
 class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
+  int _generation = 0;
+  bool _paging = false;
   @override
   Future<List<OrderModel>> build() {
+    _generation++;
+    _paging = false;
     ref.watch(authProvider.select((s) => s.user?.id));
     return ref.watch(orderRepositoryProvider).orders();
   }
 
   Future<void> more() async {
+    if (_paging || state.isLoading) return;
+    _paging = true;
+    final generation = _generation;
     final actorId = ref.read(authProvider).user?.id;
     final current = state.value ?? [];
-    final next = await ref
-        .read(orderRepositoryProvider)
-        .orders(offset: current.length);
-    if (ref.mounted && ref.read(authProvider).user?.id == actorId) {
-      state = AsyncData(
-        {
-          ...{for (final o in current) o.id: o},
-          ...{for (final o in next) o.id: o},
-        }.values.toList(),
-      );
+    try {
+      final next = await ref
+          .read(orderRepositoryProvider)
+          .orders(offset: current.length);
+      if (ref.mounted &&
+          generation == _generation &&
+          ref.read(authProvider).user?.id == actorId) {
+        state = AsyncData(
+          {
+            ...{for (final o in current) o.id: o},
+            ...{for (final o in next) o.id: o},
+          }.values.toList(),
+        );
+      }
+    } finally {
+      if (generation == _generation) _paging = false;
     }
   }
 }
@@ -42,6 +60,54 @@ class OrdersScreen extends ConsumerStatefulWidget {
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   bool busy = false;
+  Timer? _refreshTimer;
+  AppLifecycleListener? _lifecycle;
+  bool _resumed = true;
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) {
+        _resumed = state == AppLifecycleState.resumed;
+        if (_resumed && mounted && !busy) ref.invalidate(ordersProvider);
+      },
+    );
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted &&
+          _resumed &&
+          !busy &&
+          (ref.read(ordersProvider).value?.length ?? 0) <= 25) {
+        ref.invalidate(ordersProvider);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _lifecycle?.dispose();
+    super.dispose();
+  }
+
+  Future<bool> confirmAction(String message) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Confirm action'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Back'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
   Future<void> perform(Future<void> Function() action) async {
     if (busy) return;
     setState(() => busy = true);
@@ -99,31 +165,48 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   Future<void> update(OrderModel order, String action) async {
-    int? quote;
     String? reason;
     if (action == 'quote') {
-      final value = await prompt(
-        'Verified total including delivery (₹)',
-        numeric: true,
+      final values = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (_) => QuoteDialog(pharmacyId: order.pharmacyId),
       );
-      if (value == null) return;
-      quote = parseRupees(value);
-      if (quote == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Enter a positive amount with up to two decimal places (maximum ₹100,000).',
-              ),
-            ),
-          );
-        }
-        return;
-      }
+      if (values == null || !mounted) return;
+      await perform(() async {
+        await ref
+            .read(supabaseProvider)
+            .rpc('quote_order', params: {'p_id': order.id, ...values});
+        ref.invalidate(ordersProvider);
+        ref.invalidate(inventoryProvider(order.pharmacyId));
+      });
+      return;
     }
-    if (action == 'reject' || action == 'fail') {
+    if (action == 'prepay') {
+      await perform(() => ref.read(paymentServiceProvider).pay(order.id));
+      return;
+    }
+    if (['confirm', 'cancel', 'deliver', 'redispatch'].contains(action)) {
+      final message = switch (action) {
+        'confirm' =>
+          'Accept the itemized quote and pay ₹${((order.quotePaise ?? 0) / 100).toStringAsFixed(2)} in cash on delivery?',
+        'deliver' =>
+          order.paymentStatus == 'paid'
+              ? 'Confirm this prepaid order was delivered. Do not collect cash.'
+              : 'Confirm delivery and collection of ₹${((order.quotePaise ?? 0) / 100).toStringAsFixed(2)} in cash.',
+        'redispatch' =>
+          'Confirm all items were returned to the pharmacy and can be dispatched again.',
+        _ =>
+          'Cancel this request? Captured online payments will be queued for a full refund.',
+      };
+      if (!await confirmAction(message) || !mounted) return;
+    }
+    if (action == 'reject' || action == 'fail' || action == 'return_cancel') {
       reason = await prompt(
-        action == 'reject' ? 'Reason for rejection' : 'Reason delivery failed',
+        action == 'reject'
+            ? 'Reason for rejection'
+            : action == 'return_cancel'
+            ? 'Confirm pharmacy return and cancellation reason'
+            : 'Reason delivery failed',
       );
       if (reason == null) return;
     }
@@ -131,7 +214,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     await perform(() async {
       await ref
           .read(orderRepositoryProvider)
-          .transition(order.id, action, quotePaise: quote, reason: reason);
+          .transition(order.id, action, reason: reason);
       ref.invalidate(ordersProvider);
     });
   }
@@ -144,6 +227,38 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       appBar: AppBar(
         title: Text(role == UserRole.admin ? 'Operations' : 'Orders'),
         actions: [
+          if (role == UserRole.pharmacyOwner)
+            IconButton(
+              tooltip: 'Inventory',
+              icon: const Icon(Icons.inventory_2),
+              onPressed: busy
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const InventoryScreen(),
+                      ),
+                    ),
+            ),
+          IconButton(
+            tooltip: 'Support',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('MediDeliver support'),
+                content: const SelectableText(
+                  'ayushgupta.5924@gmail.com\nInclude your order number. Do not email prescriptions or payment details. For urgent medical help, contact local emergency services.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ),
+          ),
           if (role == UserRole.customer)
             IconButton(
               tooltip: 'New order',
@@ -204,6 +319,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         if (order.deliveryAddress.isNotEmpty)
                           Text(order.deliveryAddress),
                         Text('Postal code: ${order.postalCode}'),
+                        if (order.recipientPhone.isNotEmpty)
+                          SelectableText(
+                            'Delivery contact: ${order.recipientPhone}',
+                          ),
+                        if (order.pickupAddress.isNotEmpty)
+                          Text('Pharmacy pickup: ${order.pickupAddress}'),
+                        if (order.pharmacyPhone.isNotEmpty)
+                          SelectableText(
+                            'Pharmacy contact: ${order.pharmacyPhone}',
+                          ),
+                        for (final item in order.quoteItems)
+                          Text(
+                            '${item['name']} × ${item['quantity']} • ₹${((item['unit_price_paise'] as num) / 100).toStringAsFixed(2)} each • Batch ${item['batch_number']} • Expiry ${item['expires_on']}',
+                          ),
+                        if (order.quoteItems.isNotEmpty)
+                          Text(
+                            'Delivery: ₹${(order.deliveryFeePaise / 100).toStringAsFixed(2)} • All prices include applicable taxes',
+                          ),
                         for (final item in order.items)
                           Text('${item["name"]} × ${item["quantity"]}'),
                         if (order.customerNotes.isNotEmpty)
@@ -260,6 +393,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             for (final entry in orderActions(
                               role,
                               order.status,
+                              paymentStatus: order.paymentStatus,
+                              paymentMethod: order.paymentMethod,
                             ).entries)
                               OutlinedButton(
                                 onPressed: busy
@@ -301,10 +436,20 @@ int? parseRupees(String value) {
   return paise > 0 && paise <= 10000000 ? paise : null;
 }
 
-Map<String, String> orderActions(UserRole? role, String status) {
+Map<String, String> orderActions(
+  UserRole? role,
+  String status, {
+  String paymentStatus = 'unpaid',
+  String? paymentMethod,
+}) {
   if (role == UserRole.customer) {
     return {
-      if (status == 'quoted') 'confirm': 'Accept total • Cash on delivery',
+      if (status == 'quoted' && paymentMethod != 'razorpay')
+        'confirm': 'Accept total • Cash on delivery',
+      if (status == 'quoted' && SupabaseConstants.paymentsEnabled)
+        'prepay': paymentMethod == 'razorpay'
+            ? 'Resume online checkout'
+            : 'Accept total • Pay online',
       if (['submitted', 'quoted', 'confirmed'].contains(status))
         'cancel': 'Cancel request',
     };
@@ -323,7 +468,10 @@ Map<String, String> orderActions(UserRole? role, String status) {
     return {
       if (status == 'ready') 'accept': 'Accept delivery',
       if (status == 'assigned') 'pickup': 'Confirm pickup',
-      if (status == 'picked_up') 'deliver': 'Cash collected • Confirm delivery',
+      if (status == 'picked_up')
+        'deliver': paymentStatus == 'paid'
+            ? 'Prepaid • Confirm delivery'
+            : 'Cash collected • Confirm delivery',
       if (status == 'picked_up') 'fail': 'Report failed delivery',
     };
   }
@@ -331,6 +479,8 @@ Map<String, String> orderActions(UserRole? role, String status) {
     return {
       if (status == 'delivery_failed')
         'redispatch': 'Confirm pharmacy return • Redispatch',
+      if (status == 'delivery_failed')
+        'return_cancel': 'Confirm pharmacy return • Cancel and refund',
     };
   }
   return {};
