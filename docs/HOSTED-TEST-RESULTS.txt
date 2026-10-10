@@ -1,0 +1,41 @@
+MediDeliver hosted acceptance results - 10 October 2026
+Project: mehtwvkvbjytnpjyzhxr
+Run: a387cbff-b43b-4fc5-a891-4eacf6dbe73e
+Result: HTTP 200; success true; 28 passed; failure null; cleanupErrors []
+
+Passed:
+1-6. Independent authenticated profiles: customer, stranger, pharmacy, rider, rider2, operator
+7. Customer PNG upload
+8. Duplicate, foreign-folder, invalid MIME and oversized uploads denied
+9. Request replay idempotent
+10. Foreign customer cannot list order
+11. Pharmacy and operator can list assigned order
+12-14. Private image signing denied for stranger and both riders
+15-17. Authorized signed image downloads for customer, pharmacy and operator
+18. Signed image expires
+19. Server computes itemized total
+20. Quote reserves stock
+21. Rider dispatch view hides medical and recipient information
+22. Concurrent rider acceptance has one winner
+23. Assigned rider receives delivery contact
+24. Rider cannot bypass redacted RPC
+25. COD delivered with cash collection
+26. Completed rider contact removed
+27. Delivery deducts stock exactly once
+28. Duplicate delivery denied
+
+Independent cleanup verification via Supabase SQL editor:
+orders=4; active_pharmacies=1; inventory_lots=2;
+test_users=0; test_pharmacies=0; stored_prescriptions=0.
+
+Runner authorization: anonymous request HTTP 401 before disabling.
+Runner replaced with inert response; independent HTTP probe returned 410.
+All test sessions logged out and six disposable users removed.
+Existing mock data preserved. No service credentials saved in source or this report.
+
+Public app: https://medideliver-eight.vercel.app
+Root HTTP 200; health HTTP 200, configured=true, paymentsEnabled=false.
+Prepaid checkout HTTP 503, Online payments are not enabled.
+
+Scope: real hosted Auth/PostgREST/Storage HTTP tests. This does not substitute
+for a complete authenticated Flutter UI walkthrough or actual pharmacy operations.

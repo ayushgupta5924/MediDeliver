@@ -1,6 +1,6 @@
 // Temporary dashboard runner for the same HTTP acceptance cases as test_hosted.py.
 // Deploy manually only to the owner's MOCK project. Never accepts anon/user JWTs.
-// All privileged keys remain in Supabase runtime; no credentials are returned/logged.
+// Service credential stays inside Supabase dashboard/runtime; never returned/logged.
 // Replace this deployment with HTTP 410 after the run. No automatic deployment.
 const PROJECT = 'mehtwvkvbjytnpjyzhxr';
 const EXPIRES = Date.parse('2026-10-11T00:00:00Z');
@@ -131,8 +131,11 @@ export async function acceptance(env, fetcher = fetch) {
   return {project:PROJECT,run,passed,passCount:passed.length,failure,cleanupErrors,success:!failure && !cleanupErrors.length};
 }
 Deno.serve(async request => {
-  const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!service || (request.headers.get('Authorization') !== 'Bearer '+service && request.headers.get('x-acceptance-service-key') !== service)) return new Response('Unauthorized',{status:401});
+  const service = request.headers.get('x-acceptance-service-key') || request.headers.get('Authorization')?.replace(/^Bearer /,'');
+  if (!service) return new Response('Unauthorized',{status:401});
+  const authCheck = await fetch(`https://${PROJECT}.supabase.co/auth/v1/admin/users?page=1&per_page=1`,{headers:{apikey:service,Authorization:'Bearer '+service}});
+  await authCheck.body?.cancel();
+  if (!authCheck.ok) return new Response('Unauthorized',{status:401});
   if (Date.now()>EXPIRES) return new Response('Runner expired',{status:410});
   if (request.method!=='POST') return new Response('POST required',{status:405});
   const body = await request.json().catch(()=>null);
@@ -144,3 +147,4 @@ Deno.serve(async request => {
     return Response.json(result,{status:result.success?200:500});
   } finally {busy=false;}
 });
+
