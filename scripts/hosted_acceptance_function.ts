@@ -132,7 +132,7 @@ export async function acceptance(env, fetcher = fetch) {
 }
 Deno.serve(async request => {
   const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!service || request.headers.get('Authorization') !== 'Bearer '+service) return new Response('Unauthorized',{status:401});
+  if (!service || (request.headers.get('Authorization') !== 'Bearer '+service && request.headers.get('x-acceptance-service-key') !== service)) return new Response('Unauthorized',{status:401});
   if (Date.now()>EXPIRES) return new Response('Runner expired',{status:410});
   if (request.method!=='POST') return new Response('POST required',{status:405});
   const body = await request.json().catch(()=>null);
