@@ -1,22 +1,27 @@
 # Validation status — 10 October 2026
 
-## Passed locally
+## Passed
 
-- Twelve Node.js tests: signature verification over raw bytes, amount/currency/order/capture checks, duplicate webhook routing, ambiguous provider creation handling, opaque checkout tokens, server verification, refund retry keys, per-row recovery errors, request-size limits, disabled checkout and public-only release configuration.
-- All migrations apply to in-process PostgreSQL (PGlite).
-- Existing workflow and authorization SQL assertions pass against the expanded schema.
-- Production SQL assertions pass for itemized quote requirements, stock reservation/release, expired stock denial, client payment forgery denial, captured-payment idempotency, prepaid delivery without cash collection, prepaid cancellation/refunds, payment audit events and late capture after cancellation or expiry.
-- Fictional seed data applies and can be rerun without duplicating orders or fulfillment.
-- Dart files parse and format using a WASM port of `dart_style`. This is **not** Flutter static analysis or compilation.
-- Supabase Auth health responds HTTP 200 with certificate validation using public DNS resolution. The system Windows resolver fails for the project host. A read-only REST query confirms the new verification column has not been deployed.
+- GitHub Actions: Flutter 3.44.2 formatting, static analysis, 15 unit/widget tests and release web compilation.
+- Fourteen Node tests for server payment guards, signatures, capture validation, recovery and public-only build configuration. Razorpay provider calls remain mocked.
+- All five migrations and rerunnable fictional seed pass in PostgreSQL via PGlite.
+- GitHub Actions real Supabase stack: workflow/RLS assertions, independent-connection concurrency tests, production payment/inventory assertions, and expired-stock denial at assignment and delivery.
+- Vercel production deployment: Flutter analyze/test/build successful; public root and health endpoint return HTTP 200. Health reports payments disabled; checkout creation returns HTTP 503.
+- Hosted Supabase baseline functions/policies reviewed, then four incremental migrations applied through authenticated SQL editor. Aggregate verification: four fictional orders, one active fictional pharmacy, two inventory lots and nine RLS-enabled public tables.
+- Existing Gmail SMTP and OTP templates inspected. One owner-approved email was delivered and its code verified (HTTP 200). Customer profile access succeeded; the test session was signed out (HTTP 204). No session tokens were saved. Site URL matches the deployment.
 
-## Required and not yet verified
+## Browser verification
 
-- Flutter analyze, Flutter unit/widget tests and release web build. The installed Dart 3.12.2 process fails before execution with `Failed to canonicalize path ... OS error (5)` under this Windows sandbox, including a minimal standalone Dart file. SDK/network permission grants did not resolve this OS restriction. Use `scripts/validate.ps1` in a normal development shell or run GitHub Actions.
-- Real Supabase stack tests and independent PostgreSQL connections. Native PostgreSQL could start here, but local client connections timed out. PGlite runs actual SQL/functions/RLS inside one process and does not establish race behavior or Auth/Storage HTTP behavior. CI retains the real Supabase stack and concurrency test.
-- Hosted schema equivalence, migrations, live OTP/SMTP, Storage access, separate-role browser workflow, backup/restore, load tests and native signed builds.
-- Razorpay sandbox checkout/webhooks/refunds; the owner has not created a merchant account and asked to prioritize COD. Payments default off.
-- Vercel deployment and remote CI. GitHub connector reports pull-only permission, Git push cannot authenticate, and no authenticated Vercel/Supabase administrator browser session is connected. No PR, hosted migration or deployment was created.
-- Vercel CLI account checks were also blocked by Windows `EPERM` errors while creating its configuration/cache directories. No credentials or account changes were made.
+The deployed smoke workflow checks desktop (1280 px) and narrow (390 px) COD demo interactions, API health and disabled prepaid checkout. See the Deployed COD browser checks workflow for its latest outcome. Screenshots are attached to the workflow run. Flutter role switches expose checkbox semantics; the harness uses those accessible roles.
 
-This status deliberately does not label the release production-ready. See the deployment runbook for the exact remaining acceptance gates.
+## Remaining live-launch gates
+
+- The deployed no-login walkthrough is browser-local fictional data. Its browser checks do not establish an authenticated end-to-end hosted order/upload workflow across four real users.
+- Validate real staff accounts, private prescription uploads and signed URLs through the hosted UI before accepting real requests. Real pharmacy identity, license verification, service coverage, dispensing procedures, privacy/retention policy and support ownership require an actual operator.
+- Backup restoration, expected-load testing and native signed Android/iOS releases have not been completed.
+- Supabase upgrades were applied manually; reconcile migration history before later CLI pushes.
+- Vercel GitHub repository connection failed; CLI deployment works, but automatic deployment on push is not configured.
+- The local Windows resolver cannot resolve the new deployment/Supabase hosts. Certificate-valid public DNS probes and GitHub-hosted tests work; no system DNS settings were changed.
+- Razorpay remains disabled at the owner's request. Merchant onboarding and sandbox checkout/webhook/refund verification are deferred.
+
+This is a deployed COD demo, not certification for real pharmacy operations.

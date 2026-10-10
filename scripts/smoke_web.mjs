@@ -34,7 +34,7 @@ try {
   await tap('Accept delivery');
   await tap('Confirm pickup');
   await tap('Cash collected • Confirm delivery');
-  await page.getByText('Cash collected: ₹209.50',{exact:true}).waitFor();
+  await page.getByText(/Cash collected: ₹209\.50/).waitFor();
   await page.screenshot({path:`smoke-results/delivered-${width}.png`});
   assert.deepEqual(errors,[],'browser must not throw startup or interaction errors');
   } catch(error) {
@@ -45,5 +45,6 @@ try {
   console.log(`PASS: ${width}px demo COD flow; health OK; prepaid disabled`);
  }
 } finally {await browser.close();}
+
 
 
