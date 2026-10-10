@@ -148,11 +148,12 @@ class AuthNotifier extends Notifier<AuthState> {
         }
       },
       onError: (Object _) {
-        if (ref.mounted)
+        if (ref.mounted) {
           state = state.copyWith(
             isLoading: false,
             error: 'Connection interrupted. Please retry.',
           );
+        }
       },
     );
     ref.onDispose(subscription.cancel);
