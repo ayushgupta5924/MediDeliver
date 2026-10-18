@@ -16,6 +16,7 @@
     {"source":"/","headers":[{"key":"Cache-Control","value":"no-cache"}]},
     {"source":"/index.html","headers":[{"key":"Cache-Control","value":"no-cache"}]},
     {"source":"/flutter_bootstrap.js","headers":[{"key":"Cache-Control","value":"no-cache"}]},
+    {"source":"/upi(.*)","headers":[{"key":"Cache-Control","value":"no-store"}]},
     {"source":"/checkout(.*)","headers":[{"key":"Cache-Control","value":"no-store"}]}
   ]
 }
