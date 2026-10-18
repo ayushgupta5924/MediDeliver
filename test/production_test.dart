@@ -6,6 +6,34 @@ import 'package:medideliver/features/orders/presentation/orders_screen.dart';
 import 'package:medideliver/features/patient/domain/order_model.dart';
 
 void main() {
+  test('UPI review cannot be bypassed by customer COD actions', () {
+    expect(
+      orderActions(
+        UserRole.customer,
+        'quoted',
+        paymentMethod: 'upi',
+      ).containsKey('confirm'),
+      isFalse,
+    );
+    expect(
+      orderActions(
+        UserRole.admin,
+        'quoted',
+        paymentMethod: 'upi',
+        paymentStatus: 'pending',
+      ).containsKey('upi_review'),
+      isTrue,
+    );
+    expect(
+      orderActions(
+        UserRole.pharmacyOwner,
+        'quoted',
+        paymentMethod: 'upi',
+        paymentStatus: 'pending',
+      ).containsKey('upi_review'),
+      isFalse,
+    );
+  });
   test('release rejects insecure URLs and privileged client keys', () {
     const key = 'sb_publishable_test_key_for_configuration';
     expect(
