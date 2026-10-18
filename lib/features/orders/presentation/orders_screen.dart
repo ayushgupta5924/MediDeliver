@@ -181,6 +181,66 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       });
       return;
     }
+    if (action == 'upi') {
+      await perform(
+        () => ref.read(paymentServiceProvider).pay(order.id, upi: true),
+      );
+      return;
+    }
+    if (action == 'upi_review' || action == 'upi_refund') {
+      final refund = action == 'upi_refund';
+      Map<String, dynamic>? payment;
+      await perform(() async {
+        payment = await ref
+            .read(supabaseProvider)
+            .from('upi_payments')
+            .select('mode,vpa,payee_name,claimed_utr,verified_utr,created_at')
+            .eq('order_id', order.id)
+            .single();
+      });
+      if (payment == null || !mounted) return;
+      final summary =
+          'Mode: ${payment!['mode']} • Merchant: ${payment!['payee_name']} • UPI ID: ${payment!['vpa'] ?? 'none (simulation)'}\n'
+          'Checkout created: ${payment!['created_at']}\n'
+          'Customer claim (unverified): ${payment!['claimed_utr'] ?? 'none'}\n'
+          'Verified credit: ${payment!['verified_utr'] ?? 'none'}\n\n';
+      if (!await confirmAction(
+        summary +
+            (refund
+                ? 'Confirm a full refund has already reached the payer. This records the refund; it does not send money.'
+                : 'Verify the credit in the merchant bank ledger: receiving account, payer, date, unique UTR and exact order total. A screenshot, SMS or matching amount alone is insufficient. For mock orders, record a simulated credit only.'),
+      )) {
+        return;
+      }
+      final utr = await prompt(
+        refund
+            ? '12-digit bank refund reference'
+            : '12-digit bank credit reference',
+      );
+      if (utr == null || !mounted) return;
+      final amount = await prompt('Exact bank amount in rupees', numeric: true);
+      if (amount == null || !mounted) return;
+      final note = await prompt(
+        'Verification evidence (20–500 characters; no bank credentials)',
+      );
+      if (note == null || !mounted) return;
+      await perform(() async {
+        await ref
+            .read(supabaseProvider)
+            .rpc(
+              'upi_review',
+              params: {
+                'p_order': order.id,
+                'p_utr': utr,
+                'p_amount': parseRupees(amount),
+                'p_note': note,
+                'p_refund': refund,
+              },
+            );
+        ref.invalidate(ordersProvider);
+      });
+      return;
+    }
     if (action == 'prepay') {
       await perform(() => ref.read(paymentServiceProvider).pay(order.id));
       return;
@@ -316,6 +376,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         Text(
                           '${order.pharmacyName} • ${order.status.replaceAll("_", " ")}',
                         ),
+                        if (order.paymentMethod == 'upi' &&
+                            SupabaseConstants.demoMode)
+                          const Text('Simulated UPI payment • No real money'),
                         if (order.deliveryAddress.isNotEmpty)
                           Text(order.deliveryAddress),
                         Text('Postal code: ${order.postalCode}'),
@@ -444,9 +507,19 @@ Map<String, String> orderActions(
 }) {
   if (role == UserRole.customer) {
     return {
-      if (status == 'quoted' && paymentMethod != 'razorpay')
+      if (status == 'quoted' && !['razorpay', 'upi'].contains(paymentMethod))
         'confirm': 'Accept total • Cash on delivery',
-      if (status == 'quoted' && SupabaseConstants.paymentsEnabled)
+      if (status == 'quoted' &&
+          paymentMethod != 'razorpay' &&
+          SupabaseConstants.upiMode != 'disabled')
+        'upi': paymentMethod == 'upi'
+            ? 'View UPI checkout'
+            : SupabaseConstants.upiMode == 'mock'
+            ? 'Try UPI • No real payment'
+            : 'Pay by UPI • Bank review required',
+      if (status == 'quoted' &&
+          paymentMethod != 'upi' &&
+          SupabaseConstants.paymentsEnabled)
         'prepay': paymentMethod == 'razorpay'
             ? 'Resume online checkout'
             : 'Accept total • Pay online',
@@ -477,6 +550,10 @@ Map<String, String> orderActions(
   }
   if (role == UserRole.admin) {
     return {
+      if (paymentMethod == 'upi' && paymentStatus == 'pending')
+        'upi_review': 'Review UPI bank credit',
+      if (paymentMethod == 'upi' && paymentStatus == 'refund_pending')
+        'upi_refund': 'Record completed UPI refund',
       if (status == 'delivery_failed')
         'redispatch': 'Confirm pharmacy return • Redispatch',
       if (status == 'delivery_failed')
