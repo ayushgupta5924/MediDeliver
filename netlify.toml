@@ -1,0 +1,47 @@
+[build]
+  command = "bash scripts/build_vercel.sh"
+  publish = "build/web"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+  DEMO_MODE = "true"
+  PAYMENTS_ENABLED = "false"
+  UPI_MODE = "mock"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+    Strict-Transport-Security = "max-age=31536000"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/flutter_bootstrap.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/upi*"
+  [headers.values]
+    Cache-Control = "no-store"
+
+[[headers]]
+  for = "/checkout*"
+  [headers.values]
+    Cache-Control = "no-store"
