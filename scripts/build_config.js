@@ -1,7 +1,11 @@
+import {upiConfig} from '../server/upi.js';
 import {writeFileSync} from 'node:fs';
 const {SUPABASE_URL:url,SUPABASE_ANON_KEY:key,APP_URL:explicitApp,PAYMENTS_ENABLED:payments='false',DEMO_MODE:demo='true'}=process.env;
+const upi=process.env.UPI_MODE??'disabled';
+if(!['disabled','mock','manual'].includes(upi)) throw Error('Invalid UPI_MODE');
 const host=process.env.VERCEL_ENV==='production'?process.env.VERCEL_PROJECT_PRODUCTION_URL:process.env.VERCEL_URL;
 const app=explicitApp||(host?`https://${host}`:null);
+if(upi!=='disabled') upiConfig({...process.env,APP_URL:app,DEMO_MODE:demo});
 if(!url||!key||!app) throw Error('Set SUPABASE_URL, SUPABASE_ANON_KEY and APP_URL');
 for(const value of [url,app]) {
   const u=new URL(value);
@@ -14,4 +18,4 @@ if(!['true','false'].includes(payments)) throw Error('PAYMENTS_ENABLED must be t
 if(!['true','false'].includes(demo)) throw Error('DEMO_MODE must be true or false');
 if(demo==='true'&&payments==='true') throw Error('Online payments cannot be enabled for a fictional demo');
 if(payments==='true'&&(!process.env.RAZORPAY_KEY_ID||!process.env.RAZORPAY_KEY_SECRET||!process.env.RAZORPAY_WEBHOOK_SECRET||!process.env.SUPABASE_SERVICE_ROLE_KEY||!process.env.CRON_SECRET)) throw Error('Payment server settings missing');
-writeFileSync('config/build.json',JSON.stringify({SUPABASE_URL:url,SUPABASE_ANON_KEY:key,APP_URL:app.replace(/\/$/,''),PAYMENTS_ENABLED:payments,DEMO_MODE:demo}));
+writeFileSync('config/build.json',JSON.stringify({SUPABASE_URL:url,SUPABASE_ANON_KEY:key,APP_URL:app.replace(/\/$/,''),PAYMENTS_ENABLED:payments,DEMO_MODE:demo,UPI_MODE:upi}));

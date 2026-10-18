@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve,dirname} from 'node:path';
 import {spawnSync} from 'node:child_process';
 const script=resolve('scripts/build_config.js');
-const valid={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_test_configuration_key',APP_URL:'https://example.invalid',PAYMENTS_ENABLED:'false',DEMO_MODE:'true'};
+const valid={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_test_configuration_key',APP_URL:'https://example.invalid',PAYMENTS_ENABLED:'false',DEMO_MODE:'true',UPI_MODE:'disabled'};
 function run(extra={}) {
   const cwd=mkdtempSync(join(tmpdir(),'medideliver-config-'));
   mkdirSync(join(cwd,'config'));
@@ -42,4 +42,12 @@ test('fictional demo cannot enable checkout even with complete server settings',
 test('first Vercel deployment derives its URL without using a placeholder origin',()=>{
   assert.equal(run({APP_URL:'',VERCEL_ENV:'preview',VERCEL_URL:'demo-abc.vercel.app'}).config.APP_URL,'https://demo-abc.vercel.app');
   assert.equal(run({APP_URL:'',VERCEL_ENV:'production',VERCEL_PROJECT_PRODUCTION_URL:'demo.vercel.app'}).config.APP_URL,'https://demo.vercel.app');
+});
+
+test('UPI build permits mock only in demo and keeps merchant configuration server-side',()=>{
+  const result=run({UPI_MODE:'mock',SUPABASE_SERVICE_ROLE_KEY:'server-only-marker',UPI_PAYEE_VPA:'merchant@bank'});
+  assert.equal(result.status,0); assert.equal(result.config.UPI_MODE,'mock');
+  assert(!JSON.stringify(result.config).includes('merchant@bank'));
+  assert.notEqual(run({UPI_MODE:'manual',SUPABASE_SERVICE_ROLE_KEY:'server-only-marker',UPI_PAYEE_VPA:'merchant@bank',UPI_PAYEE_NAME:'Merchant'}).status,0);
+  assert.equal(run({UPI_MODE:'mock',APP_URL:'',VERCEL_URL:'preview.vercel.app',SUPABASE_SERVICE_ROLE_KEY:'server-only-marker'}).status,0);
 });

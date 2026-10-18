@@ -10,15 +10,20 @@ final paymentServiceProvider = Provider((ref) => PaymentService(ref));
 class PaymentService {
   final Ref ref;
   PaymentService(this.ref);
-  Future<void> pay(String orderId) async {
+  Future<void> pay(String orderId, {bool upi = false}) async {
     final token = ref.read(supabaseProvider).auth.currentSession?.accessToken;
-    if (token == null || !SupabaseConstants.paymentsEnabled) {
+    if (token == null ||
+        (upi
+            ? SupabaseConstants.upiMode == 'disabled'
+            : !SupabaseConstants.paymentsEnabled)) {
       throw StateError('Online payment unavailable');
     }
     final client = TimeoutClient();
     try {
       final response = await client.post(
-        Uri.parse('${SupabaseConstants.appUrl}/api/payments/create'),
+        Uri.parse(
+          '${SupabaseConstants.appUrl}/api/${upi ? 'upi' : 'payments'}/create',
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -32,7 +37,7 @@ class PaymentService {
         (jsonDecode(response.body) as Map)['url'] as String,
       );
       if (url.origin != Uri.parse(SupabaseConstants.appUrl).origin ||
-          url.path != '/checkout.html') {
+          url.path != (upi ? '/upi.html' : '/checkout.html')) {
         throw StateError('Invalid checkout URL');
       }
       if (!await launchUrl(

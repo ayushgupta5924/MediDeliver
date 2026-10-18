@@ -39,6 +39,7 @@ async function runPsqlFile(file) {
 try {
   await runPsqlFile('supabase/tests/workflow.sql');
   await runPsqlFile('supabase/tests/production.sql');
+  await runPsqlFile('supabase/tests/upi.sql');
   await db.exec(readFileSync('supabase/seed.sql','utf8'));
   await db.exec(readFileSync('supabase/seed.sql','utf8'));
   console.log('Fictional seed applies and reruns successfully');
