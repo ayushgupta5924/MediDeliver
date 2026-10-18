@@ -1,6 +1,8 @@
 -- Explicit opt-in sample catalog. No auth identities or staff permissions are created.
 -- Run only for the sample deployment, with real payment collection disabled.
 begin;
+update public.pharmacies set name='Sample - Community Pharmacy'
+where id='11000000-0000-0000-0000-000000000001' and name='Demo Community Pharmacy';
 insert into public.pharmacies(id,name,postal_codes,active,pickup_address,contact_phone,license_reference,verified_at)
 values
  ('21000000-0000-4000-8000-000000000001','Sample - Greenleaf Pharmacy',array['382010','382011'],true,'Sample pickup counter A, fictional address','+910000000001','SAMPLE-NOT-A-LICENSE',now()),
