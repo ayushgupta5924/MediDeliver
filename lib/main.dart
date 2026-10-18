@@ -69,7 +69,7 @@ class MediDeliverApp extends HookConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Text(
-                    'DEMO — Fictional pharmacy and orders. No medicines will be delivered. Use sample information only.',
+                    'Sample listings • Orders are saved for testing. No real delivery or payment.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
