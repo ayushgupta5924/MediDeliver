@@ -6,6 +6,7 @@ import '../domain/order_model.dart';
 
 abstract class OrderRepository {
   Future<List<Pharmacy>> pharmacies();
+  Future<List<CatalogItem>> catalog(String pharmacyId);
   Future<String> uploadPrescription(XFile file, String requestId);
   Future<OrderModel> createOrder({
     required String requestId,
@@ -44,6 +45,19 @@ class SupabaseOrderRepository implements OrderRepository {
         .order('name')
         .limit(100);
     return rows.map(Pharmacy.fromMap).toList();
+  }
+
+  @override
+  Future<List<CatalogItem>> catalog(String pharmacyId) async {
+    final rows = await client.rpc(
+      'pharmacy_catalog',
+      params: {'p_pharmacy_id': pharmacyId},
+    );
+    return (rows as List)
+        .map(
+          (row) => CatalogItem.fromMap(Map<String, dynamic>.from(row as Map)),
+        )
+        .toList();
   }
 
   @override

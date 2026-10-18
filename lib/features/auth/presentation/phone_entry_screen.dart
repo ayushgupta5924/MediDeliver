@@ -3,7 +3,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/constants/supabase_constants.dart';
 
 class PhoneEntryScreen extends HookConsumerWidget {
   const PhoneEntryScreen({super.key});
@@ -27,14 +26,6 @@ class PhoneEntryScreen extends HookConsumerWidget {
                 'Sign in with email',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              if (SupabaseConstants.demoMode) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => context.go('/demo'),
-                  icon: const Icon(Icons.play_circle_outline),
-                  label: const Text('Try the COD demo — no sign-in needed'),
-                ),
-              ],
               const SizedBox(height: 16),
               const Text(
                 'We will email you a six-digit verification code. Pharmacy and delivery accounts require approval.',

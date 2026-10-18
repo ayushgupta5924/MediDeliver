@@ -222,3 +222,9 @@ final patientProvider = NotifierProvider<PatientNotifier, PatientState>(
 final pharmaciesProvider = FutureProvider<List<Pharmacy>>(
   (ref) => ref.watch(orderRepositoryProvider).pharmacies(),
 );
+
+final catalogProvider = FutureProvider.autoDispose
+    .family<List<CatalogItem>, String>((ref, pharmacyId) {
+      ref.watch(authProvider.select((s) => s.user?.id));
+      return ref.watch(orderRepositoryProvider).catalog(pharmacyId);
+    });

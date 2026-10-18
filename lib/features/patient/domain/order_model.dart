@@ -69,3 +69,13 @@ class Pharmacy {
     List<String>.from(m['postal_codes'] as List),
   );
 }
+
+class CatalogItem {
+  final String name;
+  final int pricePaise;
+  const CatalogItem(this.name, this.pricePaise);
+  factory CatalogItem.fromMap(Map<String, dynamic> row) => CatalogItem(
+    row['medicine_name'] as String,
+    (row['from_price_paise'] as num).toInt(),
+  );
+}

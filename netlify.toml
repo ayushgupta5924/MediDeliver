@@ -12,6 +12,15 @@
 [functions]
   node_bundler = "esbuild"
 
+# Preview builds do not receive the production service-role credential.
+[context.deploy-preview.environment]
+  UPI_MODE = "disabled"
+  PAYMENTS_ENABLED = "false"
+
+[context.branch-deploy.environment]
+  UPI_MODE = "disabled"
+  PAYMENTS_ENABLED = "false"
+
 [[headers]]
   for = "/*"
   [headers.values]

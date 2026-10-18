@@ -33,6 +33,9 @@ class CustomerAuth extends AuthNotifier {
 }
 
 void main() {
+  test('legacy demo URL cannot bypass login', () {
+    expect(authRedirect(const AuthState(), '/demo'), '/login');
+  });
   test('in-flight results cannot populate another customer account', () async {
     final repo = MockRepository();
     final auth = CustomerAuth();

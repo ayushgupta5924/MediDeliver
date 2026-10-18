@@ -107,6 +107,71 @@ class PatientUploadScreen extends HookConsumerWidget {
                                         notifier.edit(pharmacyId: id),
                                   ),
                           ),
+                      if (state.pharmacyId != null)
+                        ref
+                            .watch(catalogProvider(state.pharmacyId!))
+                            .when(
+                              loading: () => const LinearProgressIndicator(),
+                              error: (_, _) => TextButton(
+                                onPressed: () => ref.invalidate(
+                                  catalogProvider(state.pharmacyId!),
+                                ),
+                                child: const Text(
+                                  'Could not load listings. Retry',
+                                ),
+                              ),
+                              data: (items) => ExpansionTile(
+                                title: const Text('Browse pharmacy listings'),
+                                subtitle: const Text(
+                                  'Indicative prices; the pharmacy confirms your quote.',
+                                ),
+                                children: items.isEmpty
+                                    ? [
+                                        const ListTile(
+                                          title: Text(
+                                            'No available listings. You can still request pharmacy review.',
+                                          ),
+                                        ),
+                                      ]
+                                    : [
+                                        for (final item in items)
+                                          ListTile(
+                                            title: Text(item.name),
+                                            subtitle: Text(
+                                              'From INR ${(item.pricePaise / 100).toStringAsFixed(2)}',
+                                            ),
+                                            trailing: IconButton(
+                                              tooltip: 'Add ${item.name}',
+                                              icon: const Icon(
+                                                Icons.add_shopping_cart,
+                                              ),
+                                              onPressed: () {
+                                                if (state.inputMode ==
+                                                        OrderInputMode
+                                                            .prescription &&
+                                                    state.selectedImage !=
+                                                        null) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Your prescription is selected. Submit it for pharmacy review, or switch to Medicine names to build a list.',
+                                                      ),
+                                                    ),
+                                                  );
+                                                  return;
+                                                }
+                                                notifier.setInputMode(
+                                                  OrderInputMode.typed,
+                                                );
+                                                notifier.addMedicine(item.name);
+                                              },
+                                            ),
+                                          ),
+                                      ],
+                              ),
+                            ),
                       TextFormField(
                         initialValue: state.address,
                         maxLength: 500,

@@ -6,8 +6,6 @@ import '../../features/auth/presentation/phone_entry_screen.dart';
 import '../../features/patient/presentation/patient_upload_screen.dart';
 import '../../features/orders/presentation/orders_screen.dart';
 import '../services/auth_service.dart';
-import '../constants/supabase_constants.dart';
-import '../../features/demo/presentation/demo_screen.dart';
 
 String homeForRole(UserRole role) => switch (role) {
   UserRole.customer => '/patient',
@@ -17,7 +15,6 @@ String homeForRole(UserRole role) => switch (role) {
 };
 
 String? authRedirect(AuthState auth, String path) {
-  if (path == '/demo' && SupabaseConstants.demoMode) return null;
   final authRoute = ['/', '/login', '/otp', '/loading'].contains(path);
   if (auth.isLoading && !auth.isAuthenticated) {
     return authRoute ? null : '/loading';
@@ -44,7 +41,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         authRedirect(ref.read(authProvider), state.matchedLocation),
     routes: [
       GoRoute(path: '/', builder: (_, _) => const PhoneEntryScreen()),
-      GoRoute(path: '/demo', builder: (_, _) => const DemoScreen()),
+      GoRoute(path: '/demo', redirect: (_, _) => '/login'),
       GoRoute(path: '/login', builder: (_, _) => const PhoneEntryScreen()),
       GoRoute(path: '/otp', builder: (_, _) => const OtpScreen()),
       GoRoute(
