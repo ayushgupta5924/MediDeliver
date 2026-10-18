@@ -32,6 +32,7 @@ void main() {
       expect(find.text('customer@example.invalid'), findsOneWidget);
       expect(find.text('Pharmacy'), findsNothing);
       expect(find.text('Rider'), findsNothing);
+      expect(find.text('Try the COD demo — no sign-in needed'), findsNothing);
     },
   );
   testWidgets(
