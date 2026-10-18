@@ -48,5 +48,5 @@ Verified UTRs are unique across orders within each mode. Repeating the same appr
 - All migrations and three PostgreSQL/PGlite suites passed, including UPI fulfillment and the existing COD workflow.
 - Isolated Chromium checkout scenarios passed at 390px and 1280px.
 - Dart static analysis of `lib` and `test` passed with no issues; modified Dart sources were formatted.
-- Flutter checks run in GitHub Actions. Local static analysis passed; the sandbox blocks the Flutter test runner localhost socket. A workspace SDK copy is used for the local release build. Treat the final GitHub Actions run as the release gate.
-- No hosted migration, Vercel environment change, live payment or refund was performed. Default UPI is disabled until the migration and matching mode configuration are deployed.
+- Flutter release web build passed locally with mock mode enabled. GitHub Actions run 39102242753 passed formatting, analysis, Flutter tests and release build, plus server/browser and real Supabase CI tests. Local Flutter tests could not bind their localhost socket in this sandbox.
+- Applied the UPI migration to the hosted project after restoring its database connection. Configured Vercel production with UPI_MODE=mock, DEMO_MODE=true and PAYMENTS_ENABLED=false. Deployment status is recorded in PR #6; no live bank payment or refund was performed.
