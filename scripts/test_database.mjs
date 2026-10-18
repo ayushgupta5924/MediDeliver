@@ -43,4 +43,20 @@ try {
   await db.exec(readFileSync('supabase/seed.sql','utf8'));
   await db.exec(readFileSync('supabase/seed.sql','utf8'));
   console.log('Fictional seed applies and reruns successfully');
+  await db.exec(readFileSync('supabase/sample_listings.sql','utf8'));
+  await db.exec(readFileSync('supabase/sample_listings.sql','utf8'));
+  await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',false)`);
+  const catalog = await db.query(`select * from public.pharmacy_catalog('21000000-0000-4000-8000-000000000001')`);
+  if(catalog.rows.length!==6 || Object.keys(catalog.rows[0]).sort().join(',')!=='from_price_paise,medicine_name') throw Error('Catalog projection failed');
+  const privateLots = await db.query(`select * from public.inventory_lots where pharmacy_id='21000000-0000-4000-8000-000000000001'`);
+  if(privateLots.rows.length) throw Error('Customer can read private lots');
+  await db.exec(`reset role; update public.pharmacies set active=false where id='21000000-0000-4000-8000-000000000001'; set role authenticated`);
+  if((await db.query(`select * from public.pharmacy_catalog('21000000-0000-4000-8000-000000000001')`)).rows.length) throw Error('Inactive pharmacy listed');
+  await db.exec(`reset role; set role anon`);
+  let denied=false;
+  try {await db.query(`select * from public.pharmacy_catalog('21000000-0000-4000-8000-000000000002')`);} catch {denied=true;}
+  if(!denied) throw Error('Anonymous catalog access permitted');
+  await db.exec('reset role');
+  console.log('Catalog permissions, projection, inactive filtering and repeatable sample listings passed');
+
 } finally {await db.close();}
